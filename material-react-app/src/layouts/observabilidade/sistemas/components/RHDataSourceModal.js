@@ -19,38 +19,35 @@ import MDInput from "components/MDInput";
 import MDButton from "components/MDButton";
 import MDAlert from "components/MDAlert";
 
-const tipoFonteOptions = ["CSV", "Banco de Dados", "API"];
+const tipoFonteOptions = ["CSV", "DATABASE", "API"]; 
 
-// Opções de banco de dados para sugestão no input (se necessário)
-const databaseTypeOptions = ["PostgreSQL", "Oracle", "Microsoft SQL Server", "MySQL", "Other"]; 
-
+// Opções de banco de dados (padronizado para o que o backend espera)
+const databaseTypeOptions = ["postgres", "mysql", "oracle", "sqlserver"]; 
 
 function RHDataSourceModal({ open, onClose, onSave, initialData }) {
   
-  // Estado inicial específico para RH (origem fixa)
+  // Estado inicial alinhado com o schema.prisma (db_host, db_user, etc.)
   const defaultState = {
     name: "",
     origem: "RH", 
     description: "",
-    databaseType: "CSV", // Novo campo para o tipo de fonte
+    type_datasource: "CSV", // CSV, DATABASE, API
     
     // Campos CSV
-    diretorio: "", 
+    diretorio_hr: "", 
     
     // Campos Banco de Dados
-    dbHost: "",
-    dbPort: "",
-    dbName: "",
-    dbUsername: "",
-    dbPassword: "",
-    dbSoftware: "", // MySQL, Oracle, etc.
+    db_host: "",
+    db_port: "5432", // Default Postgres
+    db_name: "",
+    db_user: "",
+    db_password: "",
+    db_type: "postgres", // Default
     
-    // Campos API
-    apiUrl: "",
-    apiAuthType: "Basic", // Ex: Basic, Bearer, None
-    apiToken: "",
-    apiUsername: "",
-    apiPassword: "",
+    // Campos API 
+    api_url: "",
+    api_user: "", 
+    api_token: "", 
   };
 
   const [formData, setFormData] = useState(defaultState);
@@ -68,60 +65,59 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
     if (open) {
       setTestStatus({ show: false });
       if (initialData) {
-        // Mapeamento de Edição
-        const initialMap = {
+        const config = initialData.hrConfig || {};
+
+        setFormData({
             ...defaultState,
             name: initialData.name_datasource || "",
             description: initialData.description_datasource || "",
-            databaseType: initialData.type_datasource || "CSV",
-        };
+            type_datasource: initialData.type_datasource || "CSV",
+            
+            // CSV
+            diretorio_hr: config.diretorio_hr || "",
+            
+            // DB (Mapeando corretamente para os campos do banco)
+            db_host: config.db_host || "",
+            db_port: config.db_port || "5432",
+            db_name: config.db_name || "",
+            db_user: config.db_user || "",
+            db_password: config.db_password || "", 
+            db_type: config.db_type || "postgres",
+        });
         
-        // Mapeia dados da sub-config RH (hrConfig) se existirem
-        if (initialData.hrConfig) {
-            // Assume que 'diretorio' está em hrConfig para CSV
-            initialMap.diretorio = initialData.hrConfig.diretorio_hr || "";
-            // Adicione aqui o mapeamento para DB/API se existirem na initialData.hrConfig
-        }
-        
-        setFormData(initialMap);
       } else {
         setFormData(defaultState);
       }
     }
   }, [initialData, open]);
 
-  // Reseta status de teste ao mudar de tipo ou campos
+  // Reseta status de teste ao mudar de tipo
   useEffect(() => {
     setTestStatus({ show: false });
     setIsTesting(false);
-  }, [formData.databaseType, formData.diretorio, formData.dbHost, formData.apiUrl]);
+  }, [formData.type_datasource]);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
   
   const handleAutocompleteChange = (name, newValue) => {
     setFormData((prev) => ({ ...prev, [name]: newValue }));
   };
 
-  // Funções de Teste (CSV, DB, API)
+  // --- Funções de Teste ---
   
   const handleTestCSV = async () => {
-    if (!formData.diretorio) {
+    if (!formData.diretorio_hr) {
       setTestStatus({ show: true, color: "warning", message: "Por favor, insira o diretório CSV para testar." });
       return;
     }
-    
     setIsTesting(true);
-    setTestStatus({ show: true, color: "info", message: "Testando conexão com o arquivo CSV..." });
+    setTestStatus({ show: true, color: "info", message: "Testando leitura do arquivo CSV..." });
 
     try {
-      // Endpoint para teste de CSV (mantido do original)
-      const response = await api.post("/datasources/test-csv", { diretorio: formData.diretorio });
+      const response = await api.post("/datasources/test-csv", { diretorio: formData.diretorio_hr });
       setTestStatus({ 
         show: true, 
         color: "success", 
@@ -136,30 +132,29 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
   };
   
   const handleTestDatabase = async () => {
-    // Validação básica para DB
-    if (!formData.dbHost || !formData.dbPort || !formData.dbUsername) {
-       setTestStatus({ show: true, color: "warning", message: "Preencha Host, Porta e Usuário do DB para testar." });
+    if (!formData.db_host || !formData.db_port || !formData.db_user || !formData.db_name) {
+       setTestStatus({ show: true, color: "warning", message: "Preencha Host, Porta, Banco e Usuário para testar." });
        return;
     }
     
     setIsTesting(true);
-    setTestStatus({ show: true, color: "info", message: "Testando conexão com o Banco de Dados..." });
+    setTestStatus({ show: true, color: "info", message: "Conectando ao Banco de Dados..." });
     
     try {
-        // Endpoint para teste de Banco de Dados (ex: /datasources/test-db)
+        // CORREÇÃO AQUI: Enviando 'user' em vez de 'username'
         const response = await api.post("/datasources/test-db", { 
-            host: formData.dbHost,
-            port: formData.dbPort,
-            username: formData.dbUsername,
-            password: formData.dbPassword,
-            software: formData.dbSoftware,
-            database: formData.dbName,
+            host: formData.db_host,
+            port: formData.db_port,
+            user: formData.db_user, // <-- O Backend espera 'user'
+            password: formData.db_password,
+            database: formData.db_name,
+            type: formData.db_type
         });
         
         setTestStatus({ 
             show: true, 
             color: "success", 
-            message: `Sucesso! Conexão com ${formData.dbSoftware} estabelecida.` 
+            message: `Sucesso! Conexão estabelecida. Hora do servidor: ${response.data.serverTime || 'OK'}` 
         });
     } catch (error) {
         const message = error.response?.data?.message || "Erro desconhecido.";
@@ -169,136 +164,88 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
     }
   };
   
-  const handleTestAPI = async () => {
-    if (!formData.apiUrl) {
-       setTestStatus({ show: true, color: "warning", message: "Preencha a URL da API para testar." });
-       return;
-    }
-    
-    setIsTesting(true);
-    setTestStatus({ show: true, color: "info", message: "Testando conexão com a API..." });
-    
-    try {
-        // Endpoint para teste de API (ex: /datasources/test-api)
-        const response = await api.post("/datasources/test-api", { 
-            url: formData.apiUrl,
-            authType: formData.apiAuthType,
-            token: formData.apiToken,
-        });
-        
-        setTestStatus({ 
-            show: true, 
-            color: "success", 
-            message: `Sucesso! API retornou status ${response.status}.` 
-        });
-    } catch (error) {
-        const message = error.response?.data?.message || "Erro desconhecido.";
-        setTestStatus({ show: true, color: "error", message: `Falha na conexão API: ${message}` });
-    } finally {
-        setIsTesting(false);
-    }
-  };
-
   const handleTestConnection = () => {
-      if (formData.databaseType === "CSV") return handleTestCSV();
-      if (formData.databaseType === "Banco de Dados") return handleTestDatabase();
-      if (formData.databaseType === "API") return handleTestAPI();
+      if (formData.type_datasource === "CSV") return handleTestCSV();
+      if (formData.type_datasource === "DATABASE") return handleTestDatabase();
+      // API logic here if needed
   }
 
-  // Lógica de Validação: Precisa de nome e um teste bem-sucedido
   const getSaveDisabled = () => {
     if (!formData.name) return true;
-    
-    // Se estiver testando, desabilita
     if (isTesting) return true;
     
-    // Se o tipo for CSV, DB ou API, requer o teste de sucesso
-    if (formData.databaseType !== null) {
+    // Exige teste com sucesso antes de salvar
+    if (formData.type_datasource !== null) {
       return testStatus.color !== "success";
     }
-    
     return false;
   };
   
   const handleSave = () => {
-    // Passa os dados para a função de salvamento do componente pai
-    onSave(formData); 
+    // Prepara o payload para salvar (SystemConfig / HRConfig)
+    const payload = {
+        name: formData.name,
+        origem: "RH",
+        description: formData.description,
+        databaseType: formData.type_datasource, 
+        
+        // Campos específicos
+        diretorio: formData.diretorio_hr, 
+        
+        // Novos campos DB
+        db_host: formData.db_host,
+        db_port: formData.db_port,
+        db_name: formData.db_name,
+        db_user: formData.db_user,
+        db_password: formData.db_password,
+        db_type: formData.db_type,
+    };
+
+    onSave(payload); 
   };
   
   const renderConnectionFields = () => {
-    switch (formData.databaseType) {
+    switch (formData.type_datasource) {
         case "CSV":
             return (
                 <Grid item xs={12}>
                     <MDInput
                         label="Diretório (Caminho no Servidor)"
-                        name="diretorio"
-                        value={formData.diretorio}
+                        name="diretorio_hr"
+                        value={formData.diretorio_hr}
                         onChange={handleInputChange}
                         fullWidth
                         placeholder="/app/files/rh_data.csv"
                     />
                 </Grid>
             );
-        case "Banco de Dados":
+        case "DATABASE":
             return (
                 <>
                     <Grid item xs={12}>
                       <Autocomplete
                         options={databaseTypeOptions}
-                        value={formData.dbSoftware || null}
-                        onChange={(e, nv) => handleAutocompleteChange("dbSoftware", nv)}
-                        renderInput={(params) => <MDInput {...params} label="Software de DB" />}
+                        value={formData.db_type || null}
+                        onChange={(e, nv) => handleAutocompleteChange("db_type", nv)}
+                        renderInput={(params) => <MDInput {...params} label="Tipo de Banco" />}
                         fullWidth
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                        <MDInput label="Host" name="dbHost" value={formData.dbHost} onChange={handleInputChange} fullWidth />
+                    <Grid item xs={12} md={8}>
+                        <MDInput label="Host" name="db_host" value={formData.db_host} onChange={handleInputChange} fullWidth placeholder="localhost" />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <MDInput label="Porta" name="db_port" value={formData.db_port} onChange={handleInputChange} fullWidth placeholder="5432" />
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <MDInput label="Porta" name="dbPort" value={formData.dbPort} onChange={handleInputChange} fullWidth />
+                        <MDInput label="Nome do Banco" name="db_name" value={formData.db_name} onChange={handleInputChange} fullWidth />
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <MDInput label="Nome do Banco/Serviço" name="dbName" value={formData.dbName} onChange={handleInputChange} fullWidth />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <MDInput label="Usuário" name="dbUsername" value={formData.dbUsername} onChange={handleInputChange} fullWidth />
+                        <MDInput label="Usuário" name="db_user" value={formData.db_user} onChange={handleInputChange} fullWidth />
                     </Grid>
                     <Grid item xs={12}>
-                        <MDInput label="Senha" name="dbPassword" value={formData.dbPassword} type="password" onChange={handleInputChange} fullWidth />
+                        <MDInput label="Senha" name="db_password" value={formData.db_password} type="password" onChange={handleInputChange} fullWidth />
                     </Grid>
-                </>
-            );
-        case "API":
-            return (
-                <>
-                    <Grid item xs={12}>
-                        <MDInput label="URL da API" name="apiUrl" value={formData.apiUrl} onChange={handleInputChange} fullWidth placeholder="https://api.rh.com/users" />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <Autocomplete
-                            options={["Bearer", "Basic", "None"]}
-                            value={formData.apiAuthType || null}
-                            onChange={(e, nv) => handleAutocompleteChange("apiAuthType", nv)}
-                            renderInput={(params) => <MDInput {...params} label="Tipo de Autenticação" />}
-                            fullWidth
-                        />
-                    </Grid>
-                    {formData.apiAuthType === "Bearer" && (
-                        <Grid item xs={12} md={6}>
-                            <MDInput label="Token Bearer" name="apiToken" value={formData.apiToken} onChange={handleInputChange} fullWidth />
-                        </Grid>
-                    )}
-                    {formData.apiAuthType === "Basic" && (
-                        <>
-                            <Grid item xs={12} md={6}>
-                                <MDInput label="Usuário da API" name="apiUsername" value={formData.apiUsername} onChange={handleInputChange} fullWidth />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <MDInput label="Senha da API" name="apiPassword" value={formData.apiPassword} type="password" onChange={handleInputChange} fullWidth />
-                            </Grid>
-                        </>
-                    )}
                 </>
             );
         default:
@@ -311,7 +258,7 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
       <Card sx={{ width: "90%", maxWidth: "600px", overflowY: "auto", maxHeight: "90vh" }}>
         <MDBox p={3}>
           <MDTypography variant="h5">{initialData ? "Editar" : "Adicionar"} Fonte de Dados RH</MDTypography>
-          <MDTypography variant="caption" color="text">Origem: RH</MDTypography>
+          <MDTypography variant="caption" color="text">Origem: RH (Fonte Autoritativa)</MDTypography>
         </MDBox>
         <MDBox component="form" p={3} pt={0}>
             <Grid container spacing={3}>
@@ -322,9 +269,9 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
                 <Grid item xs={12}>
                     <Autocomplete
                         options={tipoFonteOptions}
-                        value={formData.databaseType || null}
-                        onChange={(e, nv) => handleAutocompleteChange("databaseType", nv)}
-                        renderInput={(params) => <MDInput {...params} label="Tipo de Fonte" />}
+                        value={formData.type_datasource || null}
+                        onChange={(e, nv) => handleAutocompleteChange("type_datasource", nv)}
+                        renderInput={(params) => <MDInput {...params} label="Tipo de Conexão" />}
                         fullWidth
                     />
                 </Grid>
@@ -345,7 +292,7 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
             <MDBox mt={4} display="flex" justifyContent="flex-end">
                 <MDButton variant="gradient" color="secondary" onClick={onClose} sx={{ mr: 2 }}>Cancelar</MDButton>
                 
-                {formData.databaseType && (
+                {formData.type_datasource && (
                     <Tooltip title="Testar a conexão com a fonte de dados">
                         <MDButton variant="gradient" color="success" onClick={handleTestConnection} disabled={isTesting} sx={{ mr: 2 }}>
                             {isTesting ? "Testando..." : "Testar Conexão"}

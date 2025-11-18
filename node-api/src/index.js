@@ -23,13 +23,14 @@ import rbacRoutes from "./services/rbac/index.js";
 import accountsRoutes from "./services/accounts/index.js";
 import systemsCatalogRoutes from "./services/systems-catalog/index.js";
 import resourcesRoutes from "./services/resources/index.js";
-
-// ======================= INÍCIO DA ADIÇÃO =======================
 import exportsRoutes from "./services/exports/index.js";
-// ======================== FIM DA ADIÇÃO =========================
 
 import passport from "passport"; // Necessário para proteger a nova rota
+// ======================= INÍCIO DA ALTERAÇÃO =======================
 import { testCsvConnection } from "./services/datasources/testCsv.js";
+import { testDbConnection } from "./services/datasources/testDb.js"; // <-- Importado
+// ======================== FIM DA ALTERAÇÃO =========================
+
 import path from "path";
 import * as fs from "fs";
 
@@ -91,10 +92,16 @@ app.use("/accounts", accountsRoutes);
 app.use("/systems-catalog", systemsCatalogRoutes);
 app.use("/resources", resourcesRoutes);
 app.use("/exports", exportsRoutes);
+
 app.post(
   "/datasources/test-csv",
   passport.authenticate("jwt", { session: false }),
   testCsvConnection
+);
+app.post(
+  "/datasources/test-db",
+  passport.authenticate("jwt", { session: false }),
+  testDbConnection
 );
 
 app.listen(PORT, () => console.log(`Server listening to port ${PORT}`));
