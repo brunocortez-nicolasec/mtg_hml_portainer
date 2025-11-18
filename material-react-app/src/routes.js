@@ -21,6 +21,7 @@ import ImportManagement from "layouts/observabilidade/importManagement";
 import GerenciarSistemas from "layouts/observabilidade/sistemas";
 import GerenciarExcecoes from "layouts/observabilidade/excecoes";
 import GerenciarPoliticas from "layouts/observabilidade/politicas";
+import PaginaExportacoes from "layouts/observabilidade/exportacoes";
 
 import MapeamentoDados from "layouts/observabilidade/mapeamentoDados"; 
 
@@ -102,13 +103,6 @@ const routes = [
         icon: <Icon fontSize="small">upload_file</Icon>,
       },
       {
-        name: "Contas e Recursos",
-        key: "contas-recursos",
-        route: "/observabilidade/contas-recursos",
-        component: <GerenciarContasRecursos />,
-        icon: <Icon fontSize="small">device_hub</Icon>, 
-      },
-      {
         name: "Exceções",
         key: "gerenciar-excecoes",
         route: "/observabilidade/excecoes",
@@ -121,6 +115,20 @@ const routes = [
         route: "/observabilidade/politicas",
         component: <GerenciarPoliticas />,
         icon: <Icon fontSize="small">policy</Icon>,
+      },
+      {
+        name: "Exportações",
+        key: "exportacoes",
+        route: "/observabilidade/exportacoes",
+        component: <PaginaExportacoes />,
+        icon: <Icon fontSize="small">download</Icon>,
+      },
+      {
+        name: "Contas e Recursos",
+        key: "contas-recursos",
+        route: "/observabilidade/contas-recursos",
+        component: <GerenciarContasRecursos />,
+        icon: <Icon fontSize="small">device_hub</Icon>, 
       },
       {
         name: "TruIM",

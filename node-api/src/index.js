@@ -6,7 +6,7 @@ import "./passport.js";
 import { meRoutes, authRoutes } from "./routes";
 import usersRoutes from "./services/users/index.js";
 import conjurRoutes from "./services/conjur/index.js";
-import rolesRoutes from "./services/roles/index.js"; 
+import rolesRoutes from "./services/roles/index.js";
 import groupsRoutes from "./services/groups/index.js";
 import platformsRoutes from "./services/platforms/index.js";
 import packagesRoutes from "./services/packages/index.js";
@@ -17,14 +17,19 @@ import divergencesRoutes from "./services/divergences/index.js";
 import livefeedRoutes from "./services/livefeed/index.js";
 import systemsRoutes from "./services/systems/index.js";
 import sodRoutes from "./services/sod/index.js";
-import profilesRoutes from "./services/profiles/index.js"; 
+import profilesRoutes from "./services/profiles/index.js";
 import attributesRoutes from "./services/attributes/index.js";
 import rbacRoutes from "./services/rbac/index.js";
-import accountsRoutes from "./services/accounts/index.js"; 
+import accountsRoutes from "./services/accounts/index.js";
 import systemsCatalogRoutes from "./services/systems-catalog/index.js";
 import resourcesRoutes from "./services/resources/index.js";
+
+// ======================= INÍCIO DA ADIÇÃO =======================
+import exportsRoutes from "./services/exports/index.js";
+// ======================== FIM DA ADIÇÃO =========================
+
 import passport from "passport"; // Necessário para proteger a nova rota
-import { testCsvConnection } from "./services/datasources/testCsv.js"; 
+import { testCsvConnection } from "./services/datasources/testCsv.js";
 import path from "path";
 import * as fs from "fs";
 
@@ -40,7 +45,7 @@ const corsOptions = {
       "http://localhost:8080",
       "http://localhost:3000",
       "http://localhost:3080/",
-      "http://localhost:8080/"
+      "http://localhost:8080/",
     ];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -85,11 +90,11 @@ app.use("/rbac-rules", rbacRoutes);
 app.use("/accounts", accountsRoutes);
 app.use("/systems-catalog", systemsCatalogRoutes);
 app.use("/resources", resourcesRoutes);
+app.use("/exports", exportsRoutes);
 app.post(
   "/datasources/test-csv",
   passport.authenticate("jwt", { session: false }),
   testCsvConnection
 );
-
 
 app.listen(PORT, () => console.log(`Server listening to port ${PORT}`));

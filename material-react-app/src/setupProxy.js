@@ -1,3 +1,5 @@
+// material-react-app/src/setupProxy.js
+
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const apiRoutes = [
@@ -23,6 +25,7 @@ const apiRoutes = [
   "/datasources",
   "/systems-catalog",
   "/resources",
+  "/exports",
 ];
 
 // Configuração do proxy com a função onProxyReq

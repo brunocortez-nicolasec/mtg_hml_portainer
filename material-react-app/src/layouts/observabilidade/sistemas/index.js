@@ -15,6 +15,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContentText from "@mui/material/DialogContentText";
 import Tooltip from "@mui/material/Tooltip";
+// Menu e MenuItem foram removidos pois agora usamos Dialog
 
 // Material Dashboard 2 React components
 import MDBox from "components/MDBox";
@@ -28,8 +29,12 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import DashboardNavbar from "examples/Navbars/DashboardNavbar";
 import DataTable from "examples/Tables/DataTable";
 
-// --- Importações dos Modais ---
-import DataSourceModal from "./components/DataSourceModal";
+// Importa os 3 modais separados (mantidos conforme solicitado)
+import RHDataSourceModal from "./components/RHDataSourceModal";
+import IDMDataSourceModal from "./components/IDMDataSourceModal";
+import SistemaDataSourceModal from "./components/SistemaDataSourceModal";
+
+// Modais de Visualização
 import DataSourceViewModal from "./components/DataSourceViewModal";
 import SystemProfilesModal from "./components/SystemProfilesModal";
 
@@ -44,8 +49,15 @@ function GerenciarDataSources() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [systemToDelete, setSystemToDelete] = useState(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Controle de Modais de Edição/Criação
+  // 'activeModal' armazena qual modal está aberto: "RH", "IDM", "SISTEMA" ou null
+  const [activeModal, setActiveModal] = useState(null);
   const [editingDataSource, setEditingDataSource] = useState(null);
+  
+  // ======================= INÍCIO DA ALTERAÇÃO =======================
+  // Estado para o Modal de Seleção de Tipo (substitui o Menu)
+  const [isSelectionDialogOpen, setIsSelectionDialogOpen] = useState(false);
+  // ======================== FIM DA ALTERAÇÃO =========================
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [dataSourceToView, setDataSourceToView] = useState(null);
@@ -70,7 +82,6 @@ function GerenciarDataSources() {
     }
   };
 
-
   useEffect(() => {
     if (token) {
       fetchSystems();
@@ -80,20 +91,32 @@ function GerenciarDataSources() {
     }
   }, [token]);
 
-  const handleOpenModal = () => {
-    setEditingDataSource(null);
-    setIsModalOpen(true);
+  // ======================= INÍCIO DA ALTERAÇÃO (Handlers) =======================
+  
+  // Abre o modal de seleção (Dialog)
+  const handleOpenSelectionDialog = () => {
+    setIsSelectionDialogOpen(true);
   };
 
+  // Escolhe o tipo e abre o formulário correspondente
+  const handleSelectAddType = (type) => {
+    setEditingDataSource(null); // Garante que é criação
+    setActiveModal(type); // "RH", "IDM" ou "SISTEMA"
+    setIsSelectionDialogOpen(false); // Fecha o modal de seleção
+  };
+  
   const handleEditClick = (dataSource) => {
     setEditingDataSource(dataSource);
-    setIsModalOpen(true);
+    // Abre o modal correspondente à origem do dado
+    setActiveModal(dataSource.origem_datasource); 
   };
 
   const handleCloseModal = () => {
-    setIsModalOpen(false);
+    setActiveModal(null);
     setEditingDataSource(null);
   };
+  // ======================== FIM DA ALTERAÇÃO =========================
+
   const handleViewClick = (dataSource) => {
     setDataSourceToView(dataSource);
     setIsViewModalOpen(true);
@@ -131,11 +154,8 @@ function GerenciarDataSources() {
         
         handleCloseModal();
         
-        // Após criar (Passo 1 e 2), redireciona para o Mapeamento
-        // com o ID da nova Fonte de Dados
+        // Redireciona para mapeamento se a criação foi bem sucedida
         if (newDataSource.id) {
-          // Se for SISTEMA, o onSave do modal já cuidou de criar o System (Catálogo)
-          // e o SystemConfig. Agora só precisamos mapear.
           navigate(`/observabilidade/mapeamento-dados/${newDataSource.id}`);
         } else {
           setNotification({ open: true, color: "error", title: "Erro", content: "Não foi possível obter o ID da nova fonte." });
@@ -146,9 +166,8 @@ function GerenciarDataSources() {
     } catch (error) {
       console.error("Erro ao salvar fonte de dados:", error);
       const errorMessage = error.response?.data?.message || "Ocorreu um erro inesperado.";
-      // Erro é mostrado no Modal pelo `onSave`
-      // Mas caso o onSave não trate,
-      if (!isModalOpen) {
+      
+      if (!activeModal) {
          setNotification({
           open: true,
           color: "error",
@@ -156,7 +175,6 @@ function GerenciarDataSources() {
           content: errorMessage
         });
       }
-      // Retorna o erro para o Modal (para ele não fechar)
       throw new Error(errorMessage);
     }
   };
@@ -227,38 +245,24 @@ function GerenciarDataSources() {
         const { origem_datasource, mappingRH, mappingIDM, mappingSystem } = dataSource;
         let isMapped = false;
 
-// ======================= INÍCIO DA ALTERAÇÃO (Badge Mapeamento) =======================
-        // Os nomes dos campos foram atualizados para bater com o schema (sem 'map_')
         if (origem_datasource === "RH") {
           isMapped = mappingRH && 
                      mappingRH.identity_id_hr && 
                      mappingRH.email_hr && 
                      mappingRH.status_hr;
-                      
+                     
         } else if (origem_datasource === "IDM") {
           isMapped = mappingIDM && 
                      mappingIDM.identity_id_idm && 
                      mappingIDM.email_idm && 
                      mappingIDM.status_idm;
-                      
+                     
         } else if (origem_datasource === "SISTEMA") {
           const map = mappingSystem;
-          
-          // Verifica se os campos obrigatórios de Contas estão mapeados
-          const contasMapeadas = map && 
-                                 map.accounts_id_in_system &&
-                                 map.accounts_email &&        // <-- CORRIGIDO
-                                 map.accounts_identity_id;
-                                 
-          // Verifica se os campos obrigatórios de Recursos estão mapeados
-          const recursosMapeados = map && 
-                                   map.resources_name &&
-                                   map.resources_permissions; // <-- CORRIGIDO
-                                   
-          // Considera "Mapeado" se AMBOS os fluxos obrigatórios do sistema estiverem
+          const contasMapeadas = map && map.accounts_id_in_system && map.accounts_email && map.accounts_identity_id;
+          const recursosMapeados = map && map.resources_name && map.resources_permissions;
           isMapped = contasMapeadas && recursosMapeados;
         }
-// ======================== FIM DA ALTERAÇÃO (Badge Mapeamento) =========================
 
         return (
           <MDBadge
@@ -313,7 +317,7 @@ function GerenciarDataSources() {
         );
       }
     },
-  ], [systems]); // 'systems' é a dependência correta
+  ], [systems]);
 
   const rows = useMemo(() => systems.map(system => ({
     ...system,
@@ -335,10 +339,13 @@ function GerenciarDataSources() {
                 <MDTypography variant="h6" color="white">
                   Gerenciamento de Fontes de Dados
                 </MDTypography>
-                <MDButton variant="gradient" color="dark" onClick={handleOpenModal}>
+                
+                {/* Botão que abre o Modal de Seleção */}
+                <MDButton variant="gradient" color="dark" onClick={handleOpenSelectionDialog}>
                   <Icon sx={{ fontWeight: "bold" }}>add</Icon>
                   &nbsp;Adicionar Fonte de Dados
                 </MDButton>
+                
               </MDBox>
               <MDBox pt={3}>
                 <DataTable
@@ -356,22 +363,79 @@ function GerenciarDataSources() {
         </Grid>
       </MDBox>
 
-      {isModalOpen && (
-        <DataSourceModal
-          open={isModalOpen}
+      {/* ======================= INÍCIO DA ALTERAÇÃO (Modal de Seleção) ======================= */}
+      <Dialog open={isSelectionDialogOpen} onClose={() => setIsSelectionDialogOpen(false)}>
+          <DialogTitle>Selecione o Tipo de Fonte</DialogTitle>
+          <DialogContent sx={{ p: 2, minWidth: '300px' }}>
+              <DialogContentText sx={{ mb: 2 }}>
+                  Qual a origem dos dados que você deseja cadastrar?
+              </DialogContentText>
+              <MDBox display="flex" flexDirection="column" gap={2}>
+                  <MDButton variant="gradient" color="info" onClick={() => handleSelectAddType("RH")}>
+                      RH (Recursos Humanos)
+                  </MDButton>
+                  <MDButton variant="gradient" color="secondary" onClick={() => handleSelectAddType("IDM")}>
+                      IDM (Identity Management)
+                  </MDButton>
+                  <MDButton variant="gradient" color="success" onClick={() => handleSelectAddType("SISTEMA")}>
+                      SISTEMA (Catálogo de Aplicações)
+                  </MDButton>
+              </MDBox>
+          </DialogContent>
+          <DialogActions>
+             <MDButton onClick={() => setIsSelectionDialogOpen(false)} color="text">
+                Cancelar
+             </MDButton>
+          </DialogActions>
+      </Dialog>
+      {/* ======================== FIM DA ALTERAÇÃO ========================= */}
+
+
+      {/* Modal de RH */}
+      {activeModal === "RH" && (
+        <RHDataSourceModal
+          open={true}
           onClose={handleCloseModal}
           onSave={async (formData) => {
             try {
               await handleSaveDataSource(formData);
-              handleCloseModal(); // Fecha SOMENTE em caso de sucesso
             } catch (error) {
-              // O erro já foi setado no 'handleSaveDataSource'
-              // e será exibido no modal
-              console.error("Falha ao salvar, modal permanece aberto.");
+              console.error("Erro no modal RH", error);
             }
           }}
           initialData={editingDataSource}
-          darkMode={darkMode}
+        />
+      )}
+
+      {/* Modal de Sistema */}
+      {activeModal === "SISTEMA" && (
+        <SistemaDataSourceModal
+          open={true}
+          onClose={handleCloseModal}
+          onSave={async (formData) => {
+            try {
+              await handleSaveDataSource(formData);
+            } catch (error) {
+              console.error("Erro no modal Sistema", error);
+            }
+          }}
+          initialData={editingDataSource}
+        />
+      )}
+
+      {/* Modal de IDM */}
+      {activeModal === "IDM" && (
+        <IDMDataSourceModal
+          open={true}
+          onClose={handleCloseModal}
+          onSave={async (formData) => {
+            try {
+              await handleSaveDataSource(formData);
+            } catch (error) {
+              console.error("Erro no modal IDM", error);
+            }
+          }}
+          initialData={editingDataSource}
         />
       )}
 
