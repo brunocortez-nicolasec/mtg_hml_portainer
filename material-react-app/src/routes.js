@@ -130,27 +130,6 @@ const routes = [
         component: <GerenciarContasRecursos />,
         icon: <Icon fontSize="small">device_hub</Icon>, 
       },
-      {
-        name: "TruIM",
-        key: "truim-obs",
-        route: "/observabilidade/truim",
-        component: <DashboardTruIM />,
-        icon: <Icon fontSize="small">fact_check</Icon>,
-      },
-      {
-        name: "TruPAM",
-        key: "trupam-obs",
-        route: "/observabilidade/trupam",
-        component: <DashboardTruPAM />,
-        icon: <Icon fontSize="small">shield</Icon>,
-      },
-      {
-        name: "TruAM",
-        key: "truam-obs",
-        route: "/observabilidade/truam",
-        component: <DashboardTruAM />,
-        icon: <Icon fontSize="small">hub</Icon>,
-      },
     ],
   },
   {

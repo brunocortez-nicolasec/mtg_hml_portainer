@@ -78,8 +78,11 @@ function MapeamentoDados() {
   const [mappings, setMappings] = useState({});
   const [notification, setNotification] = useState({ open: false, color: "info", message: "" });
 
+  // --- CORREÇÃO 1: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL,
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
@@ -89,16 +92,19 @@ function MapeamentoDados() {
       setLoadingList(true);
       try {
         const response = await api.get("/systems");
-        const data = response.data || [];
-        setAllDataSources(data);
+        const data = response.data;
+        
+        // --- CORREÇÃO 2: BLINDAGEM DE ARRAY ---
+        // Se der erro e vier null/undefined/html, força array vazio
+        const safeData = Array.isArray(data) ? data : [];
+        setAllDataSources(safeData);
 
         if (id) {
           const idAsNumber = parseInt(id, 10);
-          const sourceFromUrl = data.find(s => s.id === idAsNumber);
+          const sourceFromUrl = safeData.find(s => s.id === idAsNumber);
           if (sourceFromUrl) {
             setSelectedOrigem(sourceFromUrl.origem_datasource);
             setSelectedDataSource(sourceFromUrl);
-            // Se for sistema, reseta para a aba CONTAS por padrão
             if (sourceFromUrl.origem_datasource === "SISTEMA") {
                 setMappingTarget("CONTAS");
             }
@@ -109,6 +115,7 @@ function MapeamentoDados() {
       } catch (err) {
         console.error("Erro ao buscar fontes:", err);
         setPageError("Erro ao buscar lista de fontes.");
+        setAllDataSources([]); // Garante estado limpo em caso de erro
       } finally {
         setLoadingList(false);
       }
@@ -116,11 +123,11 @@ function MapeamentoDados() {
     fetchAllDataSources();
   }, [id]);
 
-  // 2. Hook: Busca colunas (CSV ou DB) automaticamente quando a fonte ou a aba muda
+  // 2. Hook: Busca colunas
   const { columns: sourceColumns, loading: loadingCols, error: colsError } = useColumnFetcher(selectedDataSource, mappingTarget);
 
 
-  // 3. Determina o Schema (RH, SISTEMA_CONTAS, SISTEMA_RECURSOS)
+  // 3. Determina o Schema
   const currentSchemaKey = useMemo(() => {
     if (!selectedDataSource) return null;
     const origem = selectedDataSource.origem_datasource;
@@ -128,7 +135,7 @@ function MapeamentoDados() {
     return origem;
   }, [selectedDataSource, mappingTarget]);
 
-  // 4. Carrega Mapeamentos Salvos (Preenche o formulário)
+  // 4. Carrega Mapeamentos Salvos
   useEffect(() => {
     if (!selectedDataSource) {
         setMappings({});
@@ -144,7 +151,6 @@ function MapeamentoDados() {
     else if (origem === "SISTEMA") {
         savedMappingsDB = selectedDataSource.mappingSystem || {};
         
-        // Filtra chaves baseadas na aba atual
         const prefix = mappingTarget === "CONTAS" ? "accounts_" : "resources_";
         
         Object.keys(savedMappingsDB).forEach(key => {
@@ -156,7 +162,6 @@ function MapeamentoDados() {
         return;
     }
     
-    // Para RH/IDM
     Object.assign(savedMappingsUI, savedMappingsDB);
     delete savedMappingsUI.id;
     delete savedMappingsUI.dataSourceId;
@@ -181,10 +186,9 @@ function MapeamentoDados() {
   };
 
   const handleMappingTargetChange = (event, newIndex) => {
-    // Troca a aba e limpa o mapeamento visual momentaneamente
     const newTarget = newIndex === 0 ? "CONTAS" : "RECURSOS";
     setMappingTarget(newTarget);
-    setMappings({}); // O useEffect de carga vai preencher com os dados salvos
+    setMappings({}); 
   };
 
   const handleMappingChange = (key, value) => {
@@ -198,7 +202,6 @@ function MapeamentoDados() {
     try {
       let finalPayload = mappings;
       
-      // Para Sistema, mescla com o mapeamento da outra aba que já existe no banco
       if (selectedDataSource.origem_datasource === "SISTEMA") {
           const fullSavedMap = selectedDataSource.mappingSystem || {};
           const prefixToKeep = mappingTarget === "CONTAS" ? "resources_" : "accounts_";
@@ -211,13 +214,11 @@ function MapeamentoDados() {
           finalPayload = { ...otherTabKeys, ...mappings };
       }
       
-      // Remove IDs internos
       delete finalPayload.id;
       delete finalPayload.dataSourceId;
 
       await api.post(`/systems/${selectedDataSource.id}/mapping`, finalPayload);
 
-      // Atualiza o estado local para refletir o salvamento
       if (selectedDataSource.origem_datasource === "SISTEMA") {
           setSelectedDataSource(prev => ({ ...prev, mappingSystem: finalPayload }));
       } else if (selectedDataSource.origem_datasource === "RH") {
@@ -234,7 +235,6 @@ function MapeamentoDados() {
     }
   };
 
-  // Prepara campos para o componente visual
   const formFields = useMemo(() => {
     if (!currentSchemaKey) return [];
     const schema = SCHEMA_MAP[currentSchemaKey] || [];
@@ -248,14 +248,16 @@ function MapeamentoDados() {
     }));
   }, [currentSchemaKey, mappings]);
 
-  // Validação do botão Salvar
   const isSaveDisabled = useMemo(() => {
      return formFields.some(f => f.required && !f.value);
   }, [formFields]);
 
+  // --- CORREÇÃO 3: BLINDAGEM DO FILTRO ---
   const filteredDataSources = useMemo(() => {
     if (!selectedOrigem) return [];
-    return allDataSources.filter(ds => ds.origem_datasource === selectedOrigem);
+    // Garante que allDataSources é array antes de filtrar
+    const safeSources = Array.isArray(allDataSources) ? allDataSources : [];
+    return safeSources.filter(ds => ds.origem_datasource === selectedOrigem);
   }, [allDataSources, selectedOrigem]);
 
   const closeNotification = () => setNotification({ ...notification, open: false });
@@ -308,7 +310,6 @@ function MapeamentoDados() {
                   )}
                 </MDBox>
 
-                {/* Seletor de Abas (Apenas para SISTEMA) */}
                 {selectedOrigem === "SISTEMA" && selectedDataSource && (
                   <MDBox mb={3}>
                     <MDTypography variant="h6" fontSize="0.875rem" mb={1}>3. Selecionar Tipo de Mapeamento</MDTypography>
@@ -344,7 +345,7 @@ function MapeamentoDados() {
                     title={`Colunas da Aplicação (${selectedDataSource.origem_datasource === "SISTEMA" ? mappingTarget : selectedDataSource.origem_datasource})`}
                     description={`Mapeie as colunas da sua fonte de dados (${selectedDataSource.type_datasource || 'CSV'}) para os campos da aplicação.`}
                     fields={formFields}
-                    availableColumns={sourceColumns} // Colunas vindas do Hook (CSV ou DB)
+                    availableColumns={sourceColumns} 
                     onMappingChange={handleMappingChange}
                     onSave={handleSaveMapping}
                     isSaveDisabled={isSaveDisabled}

@@ -95,6 +95,13 @@ function ImportManagement() {
     const [selectedLogDetails, setSelectedLogDetails] = useState(null);
     const [templateModalOpen, setTemplateModalOpen] = useState(false);
 
+    // --- CORREÇÃO 1: URL CORRETA (Sem localhost, estritamente env var) ---
+    const API_URL = process.env.REACT_APP_API_URL;
+
+    const api = axios.create({
+        baseURL: API_URL,
+    });
+
     const fetchDataSources = async () => {
         if (!token) {
            setAllDataSources([]);
@@ -103,8 +110,11 @@ function ImportManagement() {
         }
         setLoadingDataSources(true);
         try {
-            const response = await axios.get('/systems', { headers: { "Authorization": `Bearer ${token}` } });
-            setAllDataSources(response.data);
+            const response = await api.get('/systems', { headers: { "Authorization": `Bearer ${token}` } });
+            
+            // --- CORREÇÃO 2: BLINDAGEM DE ARRAY ---
+            const data = response.data;
+            setAllDataSources(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Erro ao buscar a lista de fontes de dados:", error);
             setAllDataSources([]);
@@ -121,10 +131,14 @@ function ImportManagement() {
         }
         setIsLoadingHistory(true);
         try {
-            const response = await axios.get('/imports', { headers: { "Authorization": `Bearer ${token}` } });
-            setHistory(response.data);
+            const response = await api.get('/imports', { headers: { "Authorization": `Bearer ${token}` } });
+            
+            // --- CORREÇÃO 2: BLINDAGEM DE ARRAY ---
+            const data = response.data;
+            setHistory(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Fetch History Error:", error);
+            setHistory([]); // Garante array vazio em erro
             setNotification({ open: true, color: "error", icon: "error", title: "Erro de Rede", content: "Falha ao buscar o histórico." });
         } finally {
             setIsLoadingHistory(false);
@@ -154,7 +168,7 @@ function ImportManagement() {
       formData.append("processingTarget", processingTarget); 
 
       try {
-        const response = await axios.post('/imports/upload', formData, { 
+        const response = await api.post('/imports/upload', formData, { 
           headers: { 
             'Content-Type': 'multipart/form-data', 
             'Authorization': `Bearer ${token}` 
@@ -169,8 +183,6 @@ function ImportManagement() {
       }
     };
 
-    // ======================= INÍCIO DA ALTERAÇÃO (Função de Disparo Unificada) =======================
-    // Esta função decide qual rota chamar com base na configuração da fonte
     const handleTriggerProcessing = async (dataSourceId, processingTarget, callback) => {
       setIsProcessing(true);
       
@@ -196,11 +208,11 @@ function ImportManagement() {
 
       // 3. Escolhe a URL correta (Segregada)
       const url = (type === 'DATABASE') 
-         ? '/imports/sync-db' 
-         : '/imports/process-directory';
+          ? '/imports/sync-db' 
+          : '/imports/process-directory';
 
       try {
-        const response = await axios.post(url, { dataSourceId, processingTarget }, { 
+        const response = await api.post(url, { dataSourceId, processingTarget }, { 
           headers: { 'Authorization': `Bearer ${token}` } 
         });
         
@@ -211,7 +223,6 @@ function ImportManagement() {
         setIsProcessing(false);
       }
     };
-    // ======================== FIM DA ALTERAÇÃO =========================
     
     // Funções helper para tratar a resposta
     const handleProcessSuccess = (importLog, callback) => {
@@ -251,7 +262,7 @@ function ImportManagement() {
     const handleConfirmDelete = async () => { 
         if (!logToDelete) return;
         try {
-            await axios.delete(`/imports/${logToDelete}`, { headers: { "Authorization": `Bearer ${token}` } });
+            await api.delete(`/imports/${logToDelete}`, { headers: { "Authorization": `Bearer ${token}` } });
             setNotification({ open: true, color: "success", icon: "check", title: "Sucesso", content: "Registro de importação excluído." });
             fetchHistory();
         } catch (error) {

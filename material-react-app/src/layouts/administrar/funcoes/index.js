@@ -1,3 +1,5 @@
+// material-react-app/src/layouts/administrar/funcoes/index.js
+
 import { useState, useEffect } from "react";
 import axios from "axios";
 
@@ -20,8 +22,10 @@ function GerenciarFuncoes() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
 
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL,
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
@@ -30,9 +34,12 @@ function GerenciarFuncoes() {
       setLoading(true);
       // --- CORRIGIDO ---
       const response = await api.get("/profiles"); // De /roles para /profiles
-      setRoles(response.data);
+      // Blindagem de Array
+      const data = response.data;
+      setRoles(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar funções:", error);
+      setRoles([]); // Garante array vazio
       setNotification({ show: true, color: "error", message: "Erro ao carregar funções." });
     } finally {
       setLoading(false);
@@ -53,6 +60,7 @@ function GerenciarFuncoes() {
   }, [notification]);
 
   useEffect(() => {
+    // roles já é garantido ser um array
     const formattedData = rolesTableData(roles, handleEditClick, handleDeleteClick);
     setTableData(formattedData);
   }, [roles]);
@@ -74,6 +82,7 @@ function GerenciarFuncoes() {
       await api.post("/profiles", newRoleData); // De /roles para /profiles
       setNotification({ show: true, color: "success", message: "Função criada com sucesso!" });
       fetchRoles();
+      handleCloseAddModal(); // Fecha modal após sucesso
     } catch (error) {
       const message = error.response?.data?.message || "Erro ao criar a função.";
       setNotification({ show: true, color: "error", message });
@@ -86,6 +95,7 @@ function GerenciarFuncoes() {
       await api.patch(`/profiles/${roleId}`, updatedData); // De /roles para /profiles
       setNotification({ show: true, color: "success", message: "Função atualizada com sucesso!" });
       fetchRoles();
+      handleCloseEditModal(); // Fecha modal após sucesso
     } catch (error) {
       const message = error.response?.data?.message || "Erro ao atualizar a função.";
       setNotification({ show: true, color: "error", message });

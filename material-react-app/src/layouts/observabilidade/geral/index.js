@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import axios from "axios";
-import { useMaterialUIController } from "context"; // Importação original
+import { useMaterialUIController } from "context"; 
 
 // Componentes do Template
 import Card from "@mui/material/Card";
@@ -37,9 +37,6 @@ import MDSnackbar from "components/MDSnackbar";
 import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import DashboardNavbar from "examples/Navbars/DashboardNavbar";
 
-// Hook do Contexto Principal
-// (Linha duplicada removida)
-
 // Componentes locais
 import LiveFeed from "./components/LiveFeed";
 import Painel from "./components/Painel";
@@ -49,7 +46,7 @@ import FinancialCards from "./components/FinancialCards";
 import RiskAnalysisWidgets from "./components/RiskAnalysisWidgets";
 import KpiStack from "./components/KpiStack";
 
-// --- COMPONENTES DE MODAL ---
+// --- COMPONENTES DE MODAL (Mantidos e Blindados) ---
 
 const ModalContent = React.forwardRef(({ title, data, onClose, darkMode }, ref) => (
     <Box ref={ref} tabIndex={-1}>
@@ -75,7 +72,6 @@ const ModalContent = React.forwardRef(({ title, data, onClose, darkMode }, ref) 
         </Card>
     </Box>
 ));
-// --- Adição de PropTypes e displayName ---
 ModalContent.propTypes = {
   title: PropTypes.string.isRequired,
   data: PropTypes.object.isRequired,
@@ -84,22 +80,17 @@ ModalContent.propTypes = {
 };
 ModalContent.defaultProps = { darkMode: false };
 ModalContent.displayName = 'ModalContent';
-// --- Fim da Adição ---
 
 
-// --- INÍCIO DA MODIFICAÇÃO: DrillDownModal ---
 const DrillDownModal = React.forwardRef(({ title, data, isLoading, onIgnore, onIgnoreAll, onClose, darkMode, divergenceCode }, ref) => {
     
-    // Colunas agora são dinâmicas baseadas no 'divergenceCode'
     const columns = useMemo(() => {
-        // Colunas Base
         let cols = [
             { Header: "Nome", accessor: "name", Cell: ({ value }) => <MDTypography variant="caption">{value || '-'}</MDTypography> },
             { Header: "Sistema", accessor: "sourceSystem", align: "center", Cell: ({ value }) => <MDTypography variant="caption">{value}</MDTypography> },
         ];
 
         if (divergenceCode === 'ACCESS_NOT_GRANTED') {
-            // Caso especial: Acesso Não Concedido (mostra dados do RH)
             cols = [
                 { Header: "Nome", accessor: "name", Cell: ({ value }) => <MDTypography variant="caption">{value || '-'}</MDTypography> },
                 { Header: "Email", accessor: "email", Cell: ({ value }) => <MDTypography variant="caption">{value || '-'}</MDTypography> },
@@ -120,7 +111,6 @@ const DrillDownModal = React.forwardRef(({ title, data, isLoading, onIgnore, onI
             cols.push({ Header: "CPF (App)", accessor: "appData.cpf_account", Cell: ({ value }) => <MDTypography variant="caption" color="error">{value || 'N/A'}</MDTypography> });
         
         } else {
-            // Default (Zumbi, Órfã, Dormente, etc.)
             cols.push({ Header: "Email", accessor: "email", Cell: ({ value }) => <MDTypography variant="caption">{value || '-'}</MDTypography> });
             cols.push({ Header: "Perfil (App)", accessor: "profile", align: "center", Cell: ({ value }) => <MDTypography variant="caption">{value || "N/A"}</MDTypography> });
             cols.push({ 
@@ -142,13 +132,15 @@ const DrillDownModal = React.forwardRef(({ title, data, isLoading, onIgnore, onI
         
         cols.push({ Header: "Ações", accessor: "id", align: "center", disableGlobalFilter: true,
             Cell: ({ row }) => (
-                // Passa o objeto 'row.original' (Account ou Identity)
                 <MDButton variant="gradient" color="success" size="small" onClick={() => onIgnore(row.original)}>Ignorar</MDButton>
             )
         });
         
         return cols;
-    }, [data, divergenceCode, onIgnore]); // Depende dos dados e do código
+    }, [data, divergenceCode, onIgnore]);
+
+    // Blindagem: Garante que 'data' seja array
+    const safeData = Array.isArray(data) ? data : [];
 
     return (
         <Box ref={ref} tabIndex={-1}>
@@ -156,7 +148,7 @@ const DrillDownModal = React.forwardRef(({ title, data, isLoading, onIgnore, onI
                 <MDBox p={2} display="flex" justifyContent="space-between" alignItems="center">
                     <MDTypography variant="h6">{title}</MDTypography>
                     <MDBox display="flex" alignItems="center">
-                        {data.length > 0 && !isLoading && (
+                        {safeData.length > 0 && !isLoading && (
                             <MDButton variant="gradient" color="info" size="small" onClick={onIgnoreAll} sx={{ mr: 2 }}>
                                 Ignorar Todos
                             </MDButton>
@@ -179,7 +171,7 @@ const DrillDownModal = React.forwardRef(({ title, data, isLoading, onIgnore, onI
                     {isLoading ? (
                         <MDBox display="flex" justifyContent="center" alignItems="center" sx={{ minHeight: '200px' }}><CircularProgress color="info" /></MDBox>
                     ) : (
-                        <DataTable table={{ columns, rows: data }} isSorted={false} entriesPerPage={{ defaultValue: 5 }} showTotalEntries canSearch />
+                        <DataTable table={{ columns, rows: safeData }} isSorted={false} entriesPerPage={{ defaultValue: 5 }} showTotalEntries canSearch />
                     )}
                 </MDBox>
             </Card>
@@ -187,7 +179,6 @@ const DrillDownModal = React.forwardRef(({ title, data, isLoading, onIgnore, onI
     );
 });
 
-// Adicionando PropTypes e displayName
 DrillDownModal.propTypes = {
   title: PropTypes.string.isRequired,
   data: PropTypes.array.isRequired,
@@ -203,7 +194,6 @@ DrillDownModal.defaultProps = {
   divergenceCode: '',
 };
 DrillDownModal.displayName = 'DrillDownModal';
-// --- FIM DA MODIFICAÇÃO ---
 
 
 const JustificationModal = ({ open, onClose, onSubmit }) => {
@@ -226,13 +216,11 @@ const JustificationModal = ({ open, onClose, onSubmit }) => {
         </Dialog>
     );
 };
-// --- Adição de PropTypes ---
 JustificationModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
 };
-// --- Fim da Adição ---
 
 
 function VisaoGeral() {
@@ -253,16 +241,27 @@ function VisaoGeral() {
     const [notification, setNotification] = useState({ open: false, color: "info", title: "", content: "" });
     const closeNotification = () => setNotification({ ...notification, open: false });
 
+    // --- CORREÇÃO: URL CORRETA ---
+    const API_URL = process.env.REACT_APP_API_URL;
+
+    const api = axios.create({
+        baseURL: API_URL,
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
     const fetchDashboardData = async () => {
         if (!token) return;
         setIsLoading(true);
-        const metricsPromise = axios.get(`/metrics/${plataformaSelecionada}?_=${new Date().getTime()}`, { headers: { "Authorization": `Bearer ${token}` } });
+        
+        const metricsPromise = api.get(`/metrics/${plataformaSelecionada}?_=${new Date().getTime()}`);
         const liveFeedParams = { system: plataformaSelecionada.toLowerCase() === 'geral' ? undefined : plataformaSelecionada };
-        const liveFeedPromise = axios.get('/live-feed', { headers: { "Authorization": `Bearer ${token}` }, params: liveFeedParams });
+        const liveFeedPromise = api.get('/live-feed', { params: liveFeedParams });
+        
         try {
             const [metricsResponse, liveFeedResponse] = await Promise.all([metricsPromise, liveFeedPromise]);
             setMetrics(metricsResponse.data);
-            setLiveFeedData(liveFeedResponse.data);
+            // Blindagem
+            setLiveFeedData(Array.isArray(liveFeedResponse.data) ? liveFeedResponse.data : []);
         } catch (error) {
             console.error("Erro ao buscar dados do dashboard:", error);
             setMetrics(null);
@@ -279,7 +278,9 @@ function VisaoGeral() {
         }
     }, [plataformaSelecionada, token]);
 
+    // Hook (já blindado anteriormente)
     const displayData = useDashboardData(metrics, isLoading);
+    
     const handlePlatformChange = (plataforma) => setPlataformaSelecionada(plataforma);
     const handleOpenModal = () => setIsModalOpen(true);
     const handleCloseModal = () => setIsModalOpen(false);
@@ -287,11 +288,12 @@ function VisaoGeral() {
     const handleKpiItemClick = async (code, title) => {
         setDrillDownState({ isOpen: true, isLoading: true, title: `Detalhes: ${title}`, data: [], code });
         try {
-            const response = await axios.get(`/divergences/by-code/${code}`, {
-                headers: { "Authorization": `Bearer ${token}` },
+            const response = await api.get(`/divergences/by-code/${code}`, {
                 params: { system: plataformaSelecionada === 'Geral' ? undefined : plataformaSelecionada }
             });
-            setDrillDownState(prev => ({ ...prev, isLoading: false, data: response.data }));
+            // Blindagem
+            const data = Array.isArray(response.data) ? response.data : [];
+            setDrillDownState(prev => ({ ...prev, isLoading: false, data: data }));
         } catch (error) {
             console.error("Erro ao buscar detalhes da divergência:", error);
             setDrillDownState(prev => ({ ...prev, isLoading: false }));
@@ -342,9 +344,8 @@ function VisaoGeral() {
 
                     const promises = Object.entries(groupedBySystem).map(([system, ids]) => {
                         if (ids.length === 0) return Promise.resolve();
-                        return axios.post('/divergences/exceptions/bulk', 
-                            { ...payload, identityIds: ids, targetSystem: system },
-                            { headers: { "Authorization": `Bearer ${token}` } }
+                        return api.post('/divergences/exceptions/bulk', 
+                            { ...payload, identityIds: ids, targetSystem: system }
                         );
                     });
                     await Promise.all(promises);
@@ -354,7 +355,7 @@ function VisaoGeral() {
                     if (accountIds.length === 0) return;
                     
                     payload.accountIds = accountIds;
-                    await axios.post('/divergences/exceptions/bulk', payload, { headers: { "Authorization": `Bearer ${token}` } });
+                    await api.post('/divergences/exceptions/bulk', payload);
                 }
 
             } else {
@@ -375,7 +376,7 @@ function VisaoGeral() {
                     payload.accountId = item.id;
                 }
                 
-                await axios.post('/divergences/exceptions', payload, { headers: { "Authorization": `Bearer ${token}` } });
+                await api.post('/divergences/exceptions', payload);
             }
             
             setNotification({ open: true, color: "success", title: "Sucesso", content: "Exceção(ões) registrada(s)." });
@@ -438,11 +439,9 @@ function VisaoGeral() {
         handleOpenModal();
     };
 
-    // --- INÍCIO DA CORREÇÃO (handleBarChartClick - Etapa 4) ---
     const handleBarChartClick = async (event, elements) => {
         if (!elements || elements.length === 0 || !token) return;
         const { index } = elements[0];
-        // As labels vêm do hook (Etapa 2), que já está atualizado
         const clickedLabel = displayData.riscosConsolidadosChart.labels[index];
         if (!clickedLabel) return;
         
@@ -459,7 +458,6 @@ function VisaoGeral() {
 
             switch (index) {
                 case 0: // Contas Admin com Risco
-                    // Este é especial, filtra o liveFeedData local
                     rowsToShow = liveFeedData.filter(item => 
                         item.perfil.toLowerCase().includes('admin') && item.divergence
                     );
@@ -474,41 +472,33 @@ function VisaoGeral() {
                     endpointCode = 'ORPHAN_ACCOUNT';
                     break;
                 
-                // --- INÍCIO DA ADIÇÃO (Etapa 4) ---
                 case 3: // Violações de SOD
                     endpointCode = 'SOD_VIOLATION';
                     break;
-                // --- FIM DA ADIÇÃO (Etapa 4) ---
 
                 default: 
                     return;
             }
 
-            // Se não for o 'case 0', busca os dados do endpoint
             if (endpointCode) {
-                 const response = await axios.get(`/divergences/by-code/${endpointCode}`, { 
-                     headers: { "Authorization": `Bearer ${token}` }, 
+                 const response = await api.get(`/divergences/by-code/${endpointCode}`, { 
                      params: requestParams 
                  });
-                 rowsToShow = response.data;
+                 // Blindagem
+                 rowsToShow = Array.isArray(response.data) ? response.data : [];
                  
-                 // Define colunas com base no endpoint (o backend já formatou)
                  columns = [
                      { Header: "Sistema", accessor: "sourceSystem" },
-// ======================= INÍCIO DA CORREÇÃO (Accessor) =======================
-                     { Header: "ID no Sistema", accessor: "id_in_system_account" }, // Corrigido
-// ======================== FIM DA CORREÇÃO (Accessor) =========================
+                     { Header: "ID no Sistema", accessor: "id_in_system_account" },
                      { Header: "Nome", accessor: "name" }, 
                      { Header: "Email", accessor: "email" },
                      { Header: "Perfis", accessor: "profile" } 
                  ];
 
-                 // Se for SOD, muda o label da última coluna
                  if (endpointCode === 'SOD_VIOLATION') {
                      columns[4].Header = "Perfis (Conflitantes)";
                  }
             }
-            // --- FIM DA CORREÇÃO (Etapa 4) ---
             
             setModalContent({ title: modalTitle, data: { columns, rows: rowsToShow } });
             handleOpenModal();
@@ -516,18 +506,13 @@ function VisaoGeral() {
             console.error(`Erro ao buscar detalhes para '${clickedLabel}':`, error);
         }
     };
-    // --- FIM DA MODIFICAÇÃO ---
 
-    // ======================= INÍCIO DA CORREÇÃO (Cálculo hasRisk) =======================
-    // Esta constante agora calcula se há algum risco nos dados do gráfico de barras
     const hasRiskInChart = useMemo(() => {
         if (!displayData || !displayData.riscosConsolidadosChart.datasets[0]) {
             return false;
         }
-        // Verifica se algum valor no array 'data' do gráfico é maior que 0
         return displayData.riscosConsolidadosChart.datasets[0].data.some(value => value > 0);
     }, [displayData]);
-    // ======================== FIM DA CORREÇÃO (Cálculo hasRisk) =========================
 
     const convertToCSV = (objArray) => {
       const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
@@ -684,7 +669,7 @@ function VisaoGeral() {
                                              <MDBox p={1} textAlign="center">
                                                  <MDTypography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>Riscos em Contas Privilegiadas</MDTypography>
                                                  <MDTypography variant="h2" fontWeight="bold" color={displayData.riscosEmContasPrivilegiadas > 0 ? "error" : "success"}>
-                                                     {displayData.riscosEmContasPrivilegiadas}
+                                                      {displayData.riscosEmContasPrivilegiadas}
                                                  </MDTypography>
                                                  <MDTypography variant="body2" color="text" sx={{mb: 3}}>contas admin com divergências.</MDTypography>
                                              </MDBox>
@@ -740,7 +725,7 @@ function VisaoGeral() {
                         <RisksChartCard 
                             chart={displayData.riscosConsolidadosChart}
                             onClick={handleBarChartClick}
-                            hasRisk={hasRiskInChart} // <-- Passa o flag calculado
+                            hasRisk={hasRiskInChart} 
                         />
                     </Grid>
                 </Grid>

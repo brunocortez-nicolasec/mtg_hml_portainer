@@ -1,91 +1,90 @@
 // material-react-app/src/layouts/observabilidade/politicas/components/sod/DynamicRuleFields.js
 
 import React from "react";
-import PropTypes from 'prop-types'; // <<< Adicionado
+import PropTypes from 'prop-types';
 
 // @mui material components
-import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import Grid from "@mui/material/Grid";
 
 // Material Dashboard 2 React components
 import MDTypography from "components/MDTypography";
-import MDInput from "components/MDInput"; // <-- ADICIONADO: Usar MDInput
-import { useMaterialUIController } from "context"; // <-- ADICIONADO: Para Modo Escuro
+import MDInput from "components/MDInput";
+import { useMaterialUIController } from "context";
 
-// Config (para operadores)
+// Config
 import { comparisonOperators } from "./sodConfig";
 
-// Componente ATUALIZADO para renderizar campos dinâmicos com operador/valor
 function DynamicRuleFields({
   ruleType,
-  resources, // <-- Corrigido de 'profiles'
-// ======================== FIM DA CORREÇÃO (Props) =========================
+  resources, 
   systems,
   attributes,
-  values, // Espera { valueASelection, valueAOperator, valueAValue, valueBSelection }
-  onChange, // Handler unificado vindo do Modal
-  isDisabled, // <<< 1. Recebe a nova prop
+  values, 
+  onChange, 
+  isDisabled, 
 }) {
-// ======================= INÍCIO DA CORREÇÃO (Modo Escuro) =======================
   const [controller] = useMaterialUIController();
   const { darkMode } = controller;
-// ======================== FIM DA CORREÇÃO (Modo Escuro) =========================
 
-  // Função interna para renderizar os campos de Atributo (Seleção, Operador, Valor)
+  // Função interna para renderizar os campos de Atributo
   const renderAttributeFields = (valueField, operatorField, valueValueField) => (
     <>
-      <Grid item xs={12} sm={4}> {/* Ajuste de tamanho */}
+      <Grid item xs={12} sm={4}>
         <Autocomplete
-          options={attributes}
+          options={Array.isArray(attributes) ? attributes : []} // Blindagem
           getOptionLabel={(option) => option.name || ""}
-          value={values[valueField]} // Ex: values.valueASelection
+          value={values[valueField]} 
           onChange={(event, newValue) => onChange(valueField, newValue)}
           isOptionEqualToValue={(option, value) => option.id === value?.id}
-          disabled={isDisabled} // <<< 2. Aplica a prop
+          disabled={isDisabled} 
           ListboxProps={{ sx: { backgroundColor: darkMode ? "grey.800" : "white" } }}
           renderInput={(params) => <MDInput {...params} label="Atributo *" required variant="outlined" />}
         />
       </Grid>
-      <Grid item xs={12} sm={3}> {/* Ajuste de tamanho */}
+      <Grid item xs={12} sm={3}>
         <Autocomplete
           options={comparisonOperators}
           getOptionLabel={(option) => option.label || ""}
-          value={values[operatorField]} // Ex: values.valueAOperator
+          value={values[operatorField]} 
           onChange={(event, newValue) => onChange(operatorField, newValue)}
           isOptionEqualToValue={(option, value) => option.id === value?.id}
           disableClearable
-          disabled={isDisabled} // <<< 2. Aplica a prop
+          disabled={isDisabled} 
           ListboxProps={{ sx: { backgroundColor: darkMode ? "grey.800" : "white" } }}
           renderInput={(params) => <MDInput {...params} label="Operador *" required variant="outlined" />}
         />
       </Grid>
-      <Grid item xs={12} sm={5}> {/* Ajuste de tamanho */}
+      <Grid item xs={12} sm={5}>
         <MDInput
           label="Valor do Atributo *"
-          name={valueValueField} // Ex: valueAValue
-          value={values[valueValueField]} // Ex: values.valueAValue
-          onChange={(e) => onChange(e.target.name, e.target.value)} // Passa nome e valor
+          name={valueValueField} 
+          value={values[valueValueField] || ""} 
+          onChange={(e) => onChange(e.target.name, e.target.value)} 
           fullWidth
           required
-          disabled={isDisabled} // <<< 2. Aplica a prop
+          disabled={isDisabled} 
           variant="outlined"
         />
       </Grid>
     </>
   );
 
-  // Função interna para renderizar campo de Perfil
+  // Função interna para renderizar campo de Perfil (Recurso)
   const renderProfileField = (valueField, label = "Perfil *") => (
     <Grid item xs={12} sm={6}>
       <Autocomplete
-        options={resources} // 2. Usa a prop 'resources'
-        // 3. Lê o nome do recurso e o sistema
-        getOptionLabel={(option) => `${option.name_resource} (${option.system?.name_system || 'Global'})` || ""}
-        value={values[valueField]} // Ex: values.valueASelection
+        options={Array.isArray(resources) ? resources : []} // Blindagem
+        // Formata o nome para exibir o sistema junto
+        getOptionLabel={(option) => {
+            if (!option) return "";
+            const sysName = option.system?.name_system || 'Global';
+            return `${option.name_resource} (${sysName})`;
+        }}
+        value={values[valueField]} 
         onChange={(event, newValue) => onChange(valueField, newValue)}
         isOptionEqualToValue={(option, value) => option.id === value?.id}
-        disabled={isDisabled} // <<< 2. Aplica a prop
+        disabled={isDisabled} 
         ListboxProps={{ sx: { backgroundColor: darkMode ? "grey.800" : "white" } }}
         renderInput={(params) => <MDInput {...params} label={label} required variant="outlined" />}
       />
@@ -96,12 +95,12 @@ function DynamicRuleFields({
    const renderSystemField = (valueField, label = "Sistema *") => (
     <Grid item xs={12} sm={6}>
       <Autocomplete
-        options={systems} // Recebe os sistemas JÁ FILTRADOS
+        options={Array.isArray(systems) ? systems : []} // Blindagem
         getOptionLabel={(option) => option.name || ""}
-        value={values[valueField]} // Ex: values.valueBSelection
+        value={values[valueField]} 
         onChange={(event, newValue) => onChange(valueField, newValue)}
         isOptionEqualToValue={(option, value) => option.id === value?.id}
-        disabled={isDisabled} // <<< 2. Aplica a prop
+        disabled={isDisabled} 
         ListboxProps={{ sx: { backgroundColor: darkMode ? "grey.800" : "white" } }}
         renderInput={(params) => <MDInput {...params} label={label} required variant="outlined" />}
       />
@@ -121,27 +120,21 @@ function DynamicRuleFields({
     case "ATTR_X_ROLE":
       return (
         <>
-          {/* Campos para Atributo A (com operador e valor) */}
           {renderAttributeFields("valueASelection", "valueAOperator", "valueAValue")}
-          {/* Campo para Perfil B */}
           {renderProfileField("valueBSelection", "Recurso Conflitante *")}
         </>
       );
     case "ATTR_X_SYSTEM":
       return (
         <>
-          {/* Campos para Atributo A (com operador e valor) */}
           {renderAttributeFields("valueASelection", "valueAOperator", "valueAValue")}
-           {/* Campo para Sistema B */}
-          {renderSystemField("valueBSelection", "Sistema Conflitante *")}
+           {renderSystemField("valueBSelection", "Sistema Conflitante *")}
         </>
       );
-    // Adicionar outros cases se houver mais ruleTypes
     default:
       return (
           <Grid item xs={12}>
             <MDTypography variant="caption" color="text">
-                {/* Mensagem atualizada */}
                 Selecione um Sistema Alvo e um Tipo de Regra...
             </MDTypography>
           </Grid>
@@ -149,21 +142,19 @@ function DynamicRuleFields({
   }
 }
 
-// --- 3. Adicionar PropTypes ---
 DynamicRuleFields.propTypes = {
   ruleType: PropTypes.object,
-  resources: PropTypes.arrayOf(PropTypes.object).isRequired, // 4. Corrigido
+  resources: PropTypes.arrayOf(PropTypes.object).isRequired, 
   systems: PropTypes.arrayOf(PropTypes.object).isRequired,
   attributes: PropTypes.arrayOf(PropTypes.object).isRequired,
   values: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
-  isDisabled: PropTypes.bool, // Nova prop
+  isDisabled: PropTypes.bool, 
 };
 
 DynamicRuleFields.defaultProps = {
-  isDisabled: false, // Valor padrão
+  isDisabled: false, 
   ruleType: null,
 };
-// --- Fim da Adição ---
 
 export default DynamicRuleFields;

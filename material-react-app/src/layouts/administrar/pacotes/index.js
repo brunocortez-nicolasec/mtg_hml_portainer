@@ -5,7 +5,7 @@ import axios from "axios";
 
 import Collapse from "@mui/material/Collapse";
 import AddPackageModal from "./components/AddPackageModal";
-import EditPackageModal from "./components/EditPackageModal"; // Importa o modal de edição
+import EditPackageModal from "./components/EditPackageModal"; 
 
 import AdminPageLayout from "layouts/administrar/components/AdminPageLayout";
 import DataTable from "examples/Tables/DataTable";
@@ -24,8 +24,11 @@ function GerenciarPacotes() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(null);
 
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL,
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
@@ -33,9 +36,12 @@ function GerenciarPacotes() {
     try {
       setLoading(true);
       const response = await api.get("/packages");
-      setPackages(response.data);
+      // Blindagem de Array
+      const data = response.data;
+      setPackages(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar pacotes:", error);
+      setPackages([]); // Garante array vazio
       setNotification({ show: true, color: "error", message: "Erro ao carregar pacotes." });
     } finally {
       setLoading(false);
@@ -56,6 +62,7 @@ function GerenciarPacotes() {
   }, [notification]);
 
   useEffect(() => {
+    // packages já é garantido ser um array
     const formattedData = packagesTableData(packages, handleEditClick, handleDeleteClick);
     setTableData(formattedData);
   }, [packages]);
@@ -77,6 +84,7 @@ function GerenciarPacotes() {
       await api.post("/packages", newPackageData);
       setNotification({ show: true, color: "success", message: "Pacote criado com sucesso!" });
       fetchPackages();
+      handleCloseAddModal(); // Fecha modal após sucesso
     } catch (error) {
       const message = error.response?.data?.message || "Erro ao criar pacote.";
       setNotification({ show: true, color: "error", message });
@@ -88,6 +96,7 @@ function GerenciarPacotes() {
       await api.patch(`/packages/${packageId}`, updatedData);
       setNotification({ show: true, color: "success", message: "Pacote atualizado com sucesso!" });
       fetchPackages();
+      handleCloseEditModal(); // Fecha modal após sucesso
     } catch (error) {
       const message = error.response?.data?.message || "Erro ao atualizar pacote.";
       setNotification({ show: true, color: "error", message });

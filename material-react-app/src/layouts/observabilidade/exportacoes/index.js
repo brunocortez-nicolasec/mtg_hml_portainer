@@ -1,6 +1,6 @@
 // material-react-app/src/layouts/observabilidade/exportacoes/index.js
 
-import { useState, useEffect, useMemo } from "react"; // <-- ADICIONADO useMemo
+import { useState, useEffect, useMemo } from "react"; 
 
 // @mui material components
 import Grid from "@mui/material/Grid";
@@ -10,11 +10,8 @@ import Menu from "@mui/material/Menu";
 import Icon from "@mui/material/Icon";
 import Divider from "@mui/material/Divider";
 import TextField from "@mui/material/TextField";
-// ======================= INÍCIO DA ALTERAÇÃO =======================
-import Chip from "@mui/material/Chip"; // <-- NOVO: Para os "Pills"
-import Stack from "@mui/material/Stack"; // <-- NOVO: Para layout dos "Pills"
-// ======================== FIM DA ALTERAÇÃO =========================
-
+import Chip from "@mui/material/Chip"; 
+import Stack from "@mui/material/Stack"; 
 
 // Material Dashboard 2 React components
 import MDBox from "components/MDBox";
@@ -26,7 +23,6 @@ import MDSnackbar from "components/MDSnackbar";
 // Material Dashboard 2 React example components
 import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import DashboardNavbar from "examples/Navbars/DashboardNavbar";
-// import Footer from "examples/Footer"; // <-- REMOVIDO
 
 // Data handling
 import axios from "axios";
@@ -34,7 +30,7 @@ import axios from "axios";
 // Importar o hook de contexto para pegar o token
 import { useMaterialUIController } from "context";
 
-// --- DEFINIÇÕES DOS FILTROS AVANÇADOS (Baseado nos manuais) ---
+// --- DEFINIÇÕES DOS FILTROS AVANÇADOS ---
 const initialAdvancedFilters = {
   identityStatus: "todos",
   accountStatus: "todos",
@@ -66,18 +62,16 @@ const divergenceTypeOptions = [
   { code: "SOD_VIOLATION", label: 'Violação de SoD' },
 ];
 
-// --- DEFINIÇÕES DO NOVO FILTRO DE STATUS DE DIVERGÊNCIA ---
 const divergenceStatusOptions = [
   { value: "divergent_only", label: "Apenas Divergências Ativas" },
   { value: "exceptions_only", label: "Apenas Exceções (Ignorados)" },
   { value: "all", label: "Mostrar Todos (Divergentes + Ignorados)" },
 ];
 
-// --- DEFINIÇÕES DO FORMATO DE EXPORTAÇÃO ---
 const exportFormatOptions = [
   { value: "csv", label: "CSV (.csv)", mime: "text/csv; charset=utf-8" },
   { value: "xlsx", label: "Excel (.xlsx)", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-  { value: "pdf", label: "PDF (.pdf)", mime: "application/pdf" }, // <-- 'disabled: true' REMOVIDO
+  { value: "pdf", label: "PDF (.pdf)", mime: "application/pdf" }, 
 ];
 
 
@@ -109,26 +103,40 @@ function PaginaExportacoes() {
     { value: "identidades", label: "Relatório de Identidades (RH)" },
   ];
 
-  // (useEffect fetchSystems inalterado)
+  // --- CORREÇÃO 1: Configuração da URL da API ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
+  const api = axios.create({
+    baseURL: API_URL,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
   useEffect(() => {
     const fetchSystems = async () => {
       if (!token) { setLoadingSystems(false); return; }
       try {
         setLoadingSystems(true);
-        const response = await axios.get("/systems-catalog", { headers: { Authorization: `Bearer ${token}` } });
-        setSystemList(response.data);
-      } catch (error) { console.error("Erro ao buscar sistemas:", error); } 
-      finally { setLoadingSystems(false); }
+        // --- CORREÇÃO 2: Uso da instância api configurada ---
+        const response = await api.get("/systems-catalog");
+        
+        // --- CORREÇÃO 3: Blindagem de Array ---
+        const data = response.data;
+        setSystemList(Array.isArray(data) ? data : []);
+      } catch (error) { 
+          console.error("Erro ao buscar sistemas:", error);
+          setSystemList([]); // Garante lista vazia em caso de erro
+      } finally { 
+          setLoadingSystems(false); 
+      }
     };
     fetchSystems();
   }, [token]); 
 
-  // (useEffect Lógica de filtros dependentes inalterado)
   useEffect(() => {
     if (reportType !== 'contas') { setSystemId('todos'); }
   }, [reportType]);
 
-  // --- Handlers dos Filtros Avançados (inalterados, são genéricos) ---
+  // --- Handlers dos Filtros Avançados ---
   const handleOpenAdvancedFilters = (event) => { setTempFilters(advancedFilters); setAnchorEl(event.currentTarget); };
   const handleCloseAdvancedFilters = () => setAnchorEl(null);
   const handleApplyAdvancedFilters = () => { setAdvancedFilters(tempFilters); handleCloseAdvancedFilters(); };
@@ -136,24 +144,13 @@ function PaginaExportacoes() {
   const handleTempFilterChange = (e) => { const { name, value } = e.target; setTempFilters(prev => ({ ...prev, [name]: value })); };
   const handleTempAutocompleteChange = (name, value) => { setTempFilters(prev => ({ ...prev, [name]: value })); };
 
-  // ======================= INÍCIO DA ALTERAÇÃO =======================
-  /**
-   * Remove um filtro avançado específico (chamado pelo 'X' do Chip)
-   */
   const handleRemoveAdvancedFilter = (filterKey) => {
-    // Reseta o filtro específico para o seu valor inicial padrão
     setAdvancedFilters(prev => ({
       ...prev,
       [filterKey]: initialAdvancedFilters[filterKey]
     }));
   };
-  // ======================== FIM DA ALTERAÇÃO =========================
 
-
-  /**
-   * @function handleGerarExportacao
-   * Chama o backend, solicita a exportação e força o download do CSV.
-   */
   const handleGerarExportacao = async () => {
     if (!token) {
       setNotification({ open: true, color: "error", title: "Erro", content: "Sessão inválida. Faça login novamente." });
@@ -163,7 +160,6 @@ function PaginaExportacoes() {
     closeNotification(); 
 
     try {
-      // Payload (inalterado, pois já envia 'advancedFilters' completo)
       const payload = { 
         reportType, 
         systemId,
@@ -171,12 +167,11 @@ function PaginaExportacoes() {
         exportFormat: exportFormat 
       };
 
-      const response = await axios.post("/exports", payload, {
-        headers: { Authorization: `Bearer ${token}` },
+      // --- CORREÇÃO 4: Uso da instância api configurada ---
+      const response = await api.post("/exports", payload, {
         responseType: 'blob', 
       });
 
-      // Lógica de download (inalterada)
       const selectedFormat = exportFormatOptions.find(f => f.value === exportFormat) || exportFormatOptions[0];
       const blob = new Blob([response.data], { type: selectedFormat.mime });
       const contentDisposition = response.headers['content-disposition'];
@@ -197,7 +192,6 @@ function PaginaExportacoes() {
       URL.revokeObjectURL(url);
 
     } catch (error) {
-      // (Lógica de tratamento de erro inalterada...)
       let errorMessage = "Erro inesperado ao gerar exportação.";
       if (error.response && error.response.data instanceof Blob) {
         try {
@@ -219,13 +213,8 @@ function PaginaExportacoes() {
   const systemOptions = [todosSistemas, ...systemList];
   const currentSystemValue = systemOptions.find(s => s.id === systemId) || todosSistemas;
   
-  // Lógica para desabilitar o filtro de Sistema
   const isSystemFilterDisabled = loadingSystems || isExporting || reportType !== 'contas';
 
-  // ======================= INÍCIO DA ALTERAÇÃO =======================
-  /**
-   * Gera a lista de "Pills" (Chips) para os filtros avançados ativos
-   */
   const activeFilterChips = useMemo(() => {
     const chips = [];
     const { 
@@ -259,8 +248,7 @@ function PaginaExportacoes() {
       chips.push({ key: 'divergenceStatus', label: `Exibição: ${option ? option.label : divergenceStatus}` });
     }
     return chips;
-  }, [advancedFilters]); // Recalcula sempre que os filtros aplicados mudarem
-  // ======================== FIM DA ALTERAÇÃO =========================
+  }, [advancedFilters]); 
 
 
   return (
@@ -271,18 +259,15 @@ function PaginaExportacoes() {
         <Grid container spacing={6}>
           <Grid item xs={12}>
             <Card>
-              {/* Cabeçalho do Card */}
               <MDBox mx={2} mt={-3} py={3} px={2} variant="gradient" bgColor="info" borderRadius="lg" coloredShadow="info">
                 <MDTypography variant="h6" color="white">
                   Gerador de Relatórios e Exportações
                 </MDTypography>
               </MDBox>
               
-              {/* Corpo do Card (Filtros e Ações) */}
               <MDBox pt={4} pb={3} px={3}>
                 <MDBox component="form" role="form">
                   
-                  {/* Título e Botão de Filtros Avançados */}
                   <MDBox display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                     <MDTypography variant="h5">
                       Selecionar Filtros
@@ -292,11 +277,7 @@ function PaginaExportacoes() {
                     </MDButton>
                   </MDBox>
                   
-                  {/* --- Área dos Filtros (Início) --- */}
-                  {/* Linha 1 de Filtros (Filtros Principais) */}
                   <Grid container spacing={3}>
-                    
-                    {/* Filtro de Tipo de Relatório */}
                     <Grid item xs={12} md={6}>
                       <Autocomplete
                         options={reportTypes}
@@ -311,9 +292,8 @@ function PaginaExportacoes() {
                       />
                     </Grid>
 
-                    {/* Filtro de Sistema */}
                     <Grid item xs={12} md={6}>
-                       <Autocomplete
+                        <Autocomplete
                         options={systemOptions}
                         value={currentSystemValue}
                         onChange={(event, newValue) => { setSystemId(newValue ? newValue.id : "todos"); }}
@@ -325,10 +305,7 @@ function PaginaExportacoes() {
                       />
                     </Grid>
                   </Grid>
-                  {/* --- Área dos Filtros (Fim) --- */}
 
-                  {/* ======================= INÍCIO DA ALTERAÇÃO ======================= */}
-                  {/* --- Área dos Filtros Avançados Ativos (Pills) --- */}
                   {activeFilterChips.length > 0 && (
                     <MDBox mt={2.5} mb={1}>
                       <MDTypography variant="caption" color="text" fontWeight="medium">
@@ -339,7 +316,7 @@ function PaginaExportacoes() {
                         spacing={1} 
                         mt={1} 
                         flexWrap="wrap" 
-                        useFlexGap // Melhor para espaçamento com quebra de linha
+                        useFlexGap 
                       >
                         {activeFilterChips.map((chip) => (
                           <Chip
@@ -349,7 +326,6 @@ function PaginaExportacoes() {
                             color="info"
                             variant="outlined"
                             sx={{ 
-                              // Estilo para parecer nativo do template
                               backgroundColor: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)",
                               borderColor: darkMode ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.23)",
                               "& .MuiChip-deleteIcon": {
@@ -366,13 +342,8 @@ function PaginaExportacoes() {
                       </Stack>
                     </MDBox>
                   )}
-                  {/* ======================== FIM DA ALTERAÇÃO ========================= */}
 
-
-                  {/* Botão de Ação e Seletor de Formato */}
                   <MDBox mt={4} mb={1} display="flex" justifyContent="flex-end" alignItems="center" gap={2}>
-                    
-                    {/* Novo Seletor de Formato de Saída */}
                     <MDBox sx={{ minWidth: 150 }}>
                       <Autocomplete
                         options={exportFormatOptions}

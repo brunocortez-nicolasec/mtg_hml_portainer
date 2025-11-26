@@ -19,17 +19,23 @@ function EditPackageModal({ open, onClose, onSave, pkg }) {
   const [allPlatforms, setAllPlatforms] = useState([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
 
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   useEffect(() => {
     const fetchPlatforms = async () => {
       try {
         const api = axios.create({
-          baseURL: "/",
+          baseURL: API_URL,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         const response = await api.get("/platforms");
-        setAllPlatforms(response.data);
+        const data = response.data;
+        // Blindagem de Array
+        setAllPlatforms(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Erro ao buscar plataformas:", error);
+        setAllPlatforms([]); // Garante array vazio
       }
     };
 

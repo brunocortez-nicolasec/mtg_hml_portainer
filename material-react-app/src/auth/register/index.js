@@ -1,3 +1,5 @@
+// material-react-app/src/auth/register/index.js
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "@mui/material/Card";
@@ -10,13 +12,11 @@ import CoverLayout from "layouts/authentication/components/CoverLayout";
 import bgImage from "assets/images/bg-sign-up-cover.jpeg";
 import AuthService from "services/auth-service";
 import { InputLabel } from "@mui/material";
-import axios from "axios"; // 1. Adicionado axios
+import axios from "axios"; 
 
-// 2. Imports do contexto corrigidos
 import { useMaterialUIController, setAuth } from "context";
 
 function Register() {
-  // 3. Usando o novo hook e o useNavigate
   const [, dispatch] = useMaterialUIController();
   const navigate = useNavigate();
 
@@ -37,7 +37,6 @@ function Register() {
   });
 
   const changeHandler = (e) => {
-    // Ajuste para o Checkbox
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setInputs({
       ...inputs,
@@ -48,7 +47,6 @@ function Register() {
   const submitHandler = async (e) => {
     e.preventDefault();
 
-    // Resetando erros
     setErrors({ nameError: false, emailError: false, passwordError: false, agreeError: false, error: false, errorText: "" });
 
     const mailFormat = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
@@ -69,8 +67,6 @@ function Register() {
       return;
     }
 
-    // --- INÍCIO DA CORREÇÃO: Formatar dados para o backend ---
-    // Envolve os dados em data.attributes
     const registrationData = {
       data: {
         attributes: {
@@ -80,35 +76,32 @@ function Register() {
         }
       }
     };
-    // --- FIM DA CORREÇÃO ---
 
     try {
-      // 4. Lógica de registro e login corrigida
-      // Passa os dados formatados para AuthService.register
-      const response = await AuthService.register(registrationData); // <<< USA registrationData
+      // O AuthService geralmente usa o http.service configurado, então o registro deve funcionar
+      const response = await AuthService.register(registrationData);
 
-      // --- INÍCIO DA CORREÇÃO DO BUG ---
-      // O backend retorna 'access_token', não 'token'
       const token = response.access_token;
-      // --- FIM DA CORREÇÃO DO BUG ---
 
       if (!token) {
         throw new Error("Token não recebido do backend após o registro.");
       }
 
-      const userResponse = await axios.get("/me", {
+      // --- CORREÇÃO AQUI: Força a URL correta para buscar dados do usuário ---
+      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
+
+      const userResponse = await axios.get(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const user = userResponse.data;
 
-      // Salva o token e os dados do usuário no contexto global
       setAuth(dispatch, { token, user });
 
-      navigate("/mind-the-gap"); // Redireciona para o dashboard
+      navigate("/mind-the-gap"); 
     } catch (err) {
+      console.error("Erro no Registro:", err);
       const message = err.response?.data?.message || "Ocorreu um erro ao tentar registrar.";
       setErrors({ ...errors, error: true, errorText: message });
-      console.error(err);
     }
   };
 
@@ -119,7 +112,7 @@ function Register() {
           variant="gradient"
           bgColor="info"
           borderRadius="lg"
-          coloredShadow="success" // Mantido como 'success' no original
+          coloredShadow="success" 
           mx={2}
           mt={-3}
           p={3}
@@ -188,17 +181,16 @@ function Register() {
             </MDBox>
             <MDBox display="flex" alignItems="center" ml={-1}>
               <Checkbox name="agree" checked={inputs.agree} onChange={changeHandler} />
-              <InputLabel // Usando InputLabel padrão, estilos aplicados via sx
+              <InputLabel 
                 variant="standard"
-                // Removidas props não padrão: fontWeight, color (usar sx)
-                sx={{ lineHeight: "1.5", cursor: "pointer", color: 'text.secondary' }} // Estilo padrão aproximado
-                htmlFor="agree" // Renomeado de 'for' para 'htmlFor' em React
+                sx={{ lineHeight: "1.5", cursor: "pointer", color: 'text.secondary' }} 
+                htmlFor="agree" 
               >
                 &nbsp;&nbsp;Eu concordo com os&nbsp;
               </InputLabel>
               <MDTypography
-                component="a" // Alterado para 'a' para ser um link clicável
-                href="#" // Adicione o link para seus termos aqui
+                component="a" 
+                href="#" 
                 variant="button"
                 fontWeight="bold"
                 color="info"
@@ -227,7 +219,7 @@ function Register() {
                 Já possui uma conta?{" "}
                 <MDTypography
                   component={Link}
-                  to="/auth/login" // Corrigido para caminho de login
+                  to="/auth/login" 
                   variant="button"
                   color="info"
                   fontWeight="medium"

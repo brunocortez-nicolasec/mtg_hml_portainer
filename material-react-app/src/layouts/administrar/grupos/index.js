@@ -25,8 +25,11 @@ function GerenciarGrupos() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL,
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
@@ -34,9 +37,12 @@ function GerenciarGrupos() {
     try {
       setLoading(true);
       const response = await api.get("/groups");
-      setGroups(response.data);
+      // Blindagem de Array
+      const data = response.data;
+      setGroups(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar grupos:", error);
+      setGroups([]); // Garante array vazio
       setNotification({ show: true, color: "error", message: "Erro ao carregar grupos." });
     } finally {
       setLoading(false);
@@ -51,12 +57,13 @@ function GerenciarGrupos() {
     if (notification.show) {
       const timer = setTimeout(() => {
         setNotification((prevState) => ({ ...prevState, show: false }));
-      }, 5000); // 5 segundos
+      }, 5000); 
       return () => clearTimeout(timer);
     }
   }, [notification]);
 
   useEffect(() => {
+    // groups já é garantido ser um array
     const formattedData = groupsTableData(
       groups,
       handleViewClick,
@@ -90,6 +97,7 @@ function GerenciarGrupos() {
       await api.post("/groups", newGroupData);
       setNotification({ show: true, color: "success", message: "Grupo criado com sucesso!" });
       fetchGroups();
+      handleCloseAddModal(); // Fecha modal
     } catch (error) {
       const message = error.response?.data?.message || "Erro ao criar o grupo.";
       setNotification({ show: true, color: "error", message });
@@ -101,6 +109,7 @@ function GerenciarGrupos() {
       await api.patch(`/groups/${groupId}`, updatedData);
       setNotification({ show: true, color: "success", message: "Grupo atualizado com sucesso!" });
       fetchGroups();
+      handleCloseEditModal(); // Fecha modal
     } catch (error) {
       console.error("Erro ao salvar grupo:", error);
       const message = error.response?.data?.message || "Erro ao atualizar o grupo.";

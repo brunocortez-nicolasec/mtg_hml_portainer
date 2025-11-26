@@ -1,21 +1,27 @@
-// node-api/src/services/datasources/testCsv.js
-
 import fs from 'fs';
 import readline from 'readline';
 import path from 'path';
 
 // --- Helper para encontrar o arquivo CSV único no diretório ---
 const findSingleCsvInDir = async (directoryPath) => {
-  const basePath = process.cwd();
+  // Em Docker/Linux, o caminho base costuma ser /usr/src/app
+  const basePath = process.cwd(); 
   
-  // LIMPEZA: Remove aspas duplas/simples e espaços extras que podem vir do input
-  const cleanPath = directoryPath.replace(/["']/g, "").trim();
+  // LIMPEZA BLINDADA: 
+  // 1. Remove aspas que possam vir do input
+  // 2. Remove espaços em branco
+  // 3. Remove barras (/) ou pontos (.) do início para evitar que o Node tente ir para a raiz do sistema
+  // Ex: "/public/rh" vira "public/rh"
+  const cleanPath = directoryPath.replace(/["']/g, "").trim().replace(/^[\.\/]+/, "");
   
-  const absolutePath = path.resolve(basePath, cleanPath);
+  // path.join é mais seguro que resolve aqui, pois concatena estritamente
+  const absolutePath = path.join(basePath, cleanPath);
 
-  // LOG DE DEBUG: Veja isso no console do Portainer/Docker se der erro
-  console.log(`[CSV TEST] Base: ${basePath}`);
-  console.log(`[CSV TEST] Input: ${directoryPath}`);
+  // --- LOGS DE DEBUG (Aparecerão no console do Portainer) ---
+  console.log(`[CSV TEST] ------------------------------------------------`);
+  console.log(`[CSV TEST] Base (CWD): ${basePath}`);
+  console.log(`[CSV TEST] Input User: ${directoryPath}`);
+  console.log(`[CSV TEST] Path Limpo: ${cleanPath}`);
   console.log(`[CSV TEST] Buscando em: ${absolutePath}`);
 
   let stats;
@@ -23,7 +29,21 @@ const findSingleCsvInDir = async (directoryPath) => {
     stats = await fs.promises.stat(absolutePath);
   } catch (err) {
     if (err.code === 'ENOENT') {
-      throw new Error(`DIR_NOT_FOUND: O diretório '${absolutePath}' não foi encontrado.`);
+      // DEBUG AVANÇADO: Se falhar, lista o que TEM na pasta para sabermos o motivo
+      console.error(`[CSV ERROR] A pasta não foi encontrada: ${absolutePath}`);
+      try {
+        const rootContent = await fs.promises.readdir(basePath);
+        console.error(`[CSV DEBUG] Conteúdo da raiz (${basePath}): [${rootContent.join(', ')}]`);
+        
+        // Se a busca for dentro de public, tenta listar public
+        if (cleanPath.startsWith('public')) {
+           const publicPath = path.join(basePath, 'public');
+           const publicContent = await fs.promises.readdir(publicPath).catch(() => ["(Erro ao ler public)"]);
+           console.error(`[CSV DEBUG] Conteúdo de 'public': [${publicContent.join(', ')}]`);
+        }
+      } catch (e) { /* ignorar erro de log */ }
+
+      throw new Error(`DIR_NOT_FOUND: O sistema buscou em '${absolutePath}' mas a pasta não existe ou está inacessível.`);
     }
     throw err;
   }
@@ -38,10 +58,10 @@ const findSingleCsvInDir = async (directoryPath) => {
   console.log(`[CSV TEST] Arquivos encontrados: ${files.join(', ')}`);
 
   if (csvFiles.length === 0) {
-    throw new Error("NO_CSV_FOUND: Nenhum arquivo CSV (.csv) encontrado no diretório.");
+    throw new Error("NO_CSV_FOUND: Nenhum arquivo CSV (.csv) encontrado nesta pasta.");
   }
   if (csvFiles.length > 1) {
-    throw new Error(`MULTIPLE_CSV_FOUND: Múltiplos arquivos CSV encontrados (${csvFiles.join(', ')}). O diretório deve conter apenas um.`);
+    throw new Error(`MULTIPLE_CSV_FOUND: Encontrados múltiplos CSVs (${csvFiles.join(', ')}). Deixe apenas um.`);
   }
 
   return path.join(absolutePath, csvFiles[0]);
@@ -52,57 +72,41 @@ export const testCsvConnection = async (req, res) => {
   const { diretorio } = req.body;
 
   if (!diretorio) {
-    return res.status(400).json({ message: "O 'diretorio' (pasta) é obrigatório." });
+    return res.status(400).json({ message: "O campo 'diretório' é obrigatório." });
   }
 
   try {
-    // 1. Encontra o caminho exato
     const csvFilePath = await findSingleCsvInDir(diretorio);
+    console.log(`[CSV TEST] Sucesso! Lendo arquivo: ${csvFilePath}`);
 
-    console.log(`[CSV TEST] Lendo arquivo: ${csvFilePath}`);
-
-    // 2. Cria stream
     const fileStream = fs.createReadStream(csvFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity,
-    });
-
-    // 3. Lê a primeira linha
     let firstLine = null;
     for await (const line of rl) {
       firstLine = line;
       break; 
     }
     rl.close();
-    fileStream.close(); // Garante fechamento do stream
+    fileStream.close();
 
     if (firstLine) {
       return res.status(200).json({ success: true, header: firstLine });
     } else {
-      return res.status(400).json({ message: "O arquivo CSV encontrado está vazio." });
+      return res.status(400).json({ message: "O arquivo CSV está vazio." });
     }
 
   } catch (error) {
-    console.error("[CSV TEST ERROR]", error);
+    console.error("[CSV TEST EXCEPTION]", error);
 
-    // Captura erros customizados do helper
-    if (error.message.startsWith('DIR_NOT_FOUND') || error.message.startsWith('NOT_A_DIRECTORY')) {
-      return res.status(404).json({ message: error.message.split(': ')[1] });
-    }
-    if (error.message.startsWith('NO_CSV_FOUND') || error.message.startsWith('MULTIPLE_CSV_FOUND')) {
+    // Tratamento de erros conhecidos para feedback amigável
+    if (error.message.startsWith('DIR_NOT_FOUND') || 
+        error.message.startsWith('NOT_A_DIRECTORY') || 
+        error.message.startsWith('NO_CSV_FOUND') || 
+        error.message.startsWith('MULTIPLE_CSV_FOUND')) {
       return res.status(400).json({ message: error.message.split(': ')[1] });
     }
     
-    if (error.code === 'ENOENT') {
-      return res.status(404).json({ message: "Arquivo não encontrado." });
-    }
-    if (error.code === 'EACCES') {
-      return res.status(403).json({ message: "ERRO DE PERMISSÃO: O sistema não consegue ler a pasta. Verifique o dono do arquivo." });
-    }
-
-    // Retorna o erro real para ajudar no debug
-    return res.status(500).json({ message: `Erro interno: ${error.message}` });
+    return res.status(500).json({ message: `Erro interno no servidor: ${error.message}` });
   }
 };

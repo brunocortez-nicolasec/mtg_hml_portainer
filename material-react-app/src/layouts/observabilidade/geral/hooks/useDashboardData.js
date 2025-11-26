@@ -1,11 +1,8 @@
-// material-react-app/src/layouts/observabilidade/geral/hooks/useDashboardData.js
-
 import { useMemo } from "react";
 
 function useDashboardData(metrics, isLoading) {
   const displayData = useMemo(() => {
-    // ======================= INÍCIO DA ALTERAÇÃO =======================
-    // A estrutura defaultData agora espelha 100% a estrutura do objeto de retorno final
+    // ======================= DEFINIÇÃO SEGURA DOS DADOS PADRÃO =======================
     const defaultData = {
         imDisplay: {
             pills: { total: 0, ativos: 0, inativos: 0, desconhecido: 0 },
@@ -18,73 +15,76 @@ function useDashboardData(metrics, isLoading) {
                 acessoPrevistoNaoConcedido: 0, 
                 nome: 0,
                 ativosNaoEncontradosRH: 0,
-                sodViolations: 0, // <<< ADICIONADO VALOR PADRÃO
+                sodViolations: 0,
             },
             kpisAdicionais: { contasDormentes: 0, acessoPrivilegiado: 0, adminsDormentes: 0 },
         },
         pamDisplay: { riscos: { acessosIndevidos: 0 } },
         riscosConsolidadosChart: { 
-            // --- INÍCIO DA CORREÇÃO (Etapa 2) ---
             labels: ["Contas Admin com Risco", "Acessos Ativos Indevidos", "Contas Órfãs", "Violações de SOD"], 
             datasets: [{ label: "Total de Eventos de Risco", color: "error", data: [0, 0, 0, 0] }] 
-            // --- FIM DA CORREÇÃO (Etapa 2) ---
         },
         prejuizoPotencial: "R$ 0,00",
         prejuizoMitigado: "R$ 0,00",
         indiceConformidade: isLoading ? "..." : "100.0",
         riscosEmContasPrivilegiadas: 0,
-        sodViolationCount: 0, // <<< ADICIONADO VALOR PADRÃO
+        sodViolationCount: 0,
     };
-    // ======================== FIM DA ALTERAÇÃO =======================
+    // =================================================================================
 
+    // Se metrics for nulo/undefined, retorna o padrão imediatamente para evitar crashes
     if (!metrics) {
         return defaultData;
     }
     
+    // --- BLINDAGEM DE ARRAYS E OBJETOS ---
+    // Garante que tiposDeUsuario seja sempre um array, mesmo que venha undefined
+    const safeTiposDeUsuario = Array.isArray(metrics.tiposDeUsuario) ? metrics.tiposDeUsuario : [];
+    const safePills = metrics.pills || defaultData.imDisplay.pills;
+    const safeKpis = metrics.kpisAdicionais || defaultData.imDisplay.kpisAdicionais;
+    const safeDivergencias = metrics.divergencias || {};
+    const safeRiscos = metrics.riscos || {};
+    const safePamRiscos = metrics.pamRiscos || defaultData.pamDisplay.riscos;
+
     const imDisplay = {
-        pills: metrics.pills || defaultData.imDisplay.pills,
+        pills: safePills,
         tiposChart: {
-            labels: metrics.tiposDeUsuario.map(t => t.tipo),
+            // Agora usamos o array seguro 'safeTiposDeUsuario'
+            labels: safeTiposDeUsuario.map(t => t.tipo || "Desconhecido"),
             datasets: {
                 label: "Tipos de Usuário",
                 backgroundColors: ["info", "primary", "warning", "secondary", "error", "light"],
-                data: metrics.tiposDeUsuario.map(t => t.total),
+                data: safeTiposDeUsuario.map(t => t.total || 0),
             },
         },
-        tiposList: metrics.tiposDeUsuario.map(t => ({ label: t.tipo, value: t.total })),
-        kpisAdicionais: metrics.kpisAdicionais || defaultData.imDisplay.kpisAdicionais,
-        divergencias: { ...defaultData.imDisplay.divergencias, ...metrics.divergencias },
+        tiposList: safeTiposDeUsuario.map(t => ({ label: t.tipo, value: t.total })),
+        kpisAdicionais: safeKpis,
+        divergencias: { ...defaultData.imDisplay.divergencias, ...safeDivergencias },
     };
 
     const riscosConsolidadosChart = {
-        // --- INÍCIO DA CORREÇÃO (Etapa 2) ---
         labels: ["Contas Admin com Risco", "Acessos Ativos Indevidos", "Contas Órfãs", "Violações de SOD"],
-        // --- FIM DA CORREÇÃO (Etapa 2) ---
         datasets: [{
             label: "Total de Eventos de Risco",
             color: "error",
             data: [
-                metrics.riscos?.riscosEmContasPrivilegiadas || 0,
-                metrics.divergencias?.inativosRHAtivosApp || 0,
-                metrics.divergencias?.ativosNaoEncontradosRH || 0,
-                // --- INÍCIO DA CORREÇÃO (Etapa 2) ---
-                metrics.riscos?.sodViolationCount || 0, // <<< ADICIONADO DADO DE SOD
-                // --- FIM DA CORREÇÃO (Etapa 2) ---
+                safeRiscos.riscosEmContasPrivilegiadas || 0,
+                safeDivergencias.inativosRHAtivosApp || 0,
+                safeDivergencias.ativosNaoEncontradosRH || 0,
+                safeRiscos.sodViolationCount || 0,
             ]
         }]
     };
     
     return { 
         imDisplay,
-        pamDisplay: { riscos: metrics.pamRiscos || defaultData.pamDisplay.riscos },
+        pamDisplay: { riscos: safePamRiscos },
         riscosConsolidadosChart,
-        prejuizoPotencial: metrics.riscos?.prejuizoPotencial || "R$ 0,00",
-        prejuizoMitigado: metrics.riscos?.valorMitigado || "R$ 0,00",
-// ======================= INÍCIO DA CORREÇÃO (Bug do 100%) =======================
-        // Altera '||' (OU) para '??' (Nullish Coalescing) para aceitar '0' como um valor válido
-        indiceConformidade: metrics.riscos?.indiceConformidade ?? "100.0",
-// ======================== FIM DA CORREÇÃO (Bug do 100%) =========================
-        riscosEmContasPrivilegiadas: metrics.riscos?.riscosEmContasPrivilegiadas || 0,
+        prejuizoPotencial: safeRiscos.prejuizoPotencial || "R$ 0,00",
+        prejuizoMitigado: safeRiscos.valorMitigado || "R$ 0,00",
+        // Usa nullish coalescing (??) para aceitar 0 como valor válido
+        indiceConformidade: safeRiscos.indiceConformidade ?? "100.0",
+        riscosEmContasPrivilegiadas: safeRiscos.riscosEmContasPrivilegiadas || 0,
     };
   }, [metrics, isLoading]);
 

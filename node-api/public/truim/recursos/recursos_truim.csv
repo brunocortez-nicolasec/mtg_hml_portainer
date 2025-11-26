@@ -1,0 +1,13 @@
+Perfil,Permissoes,Descricao
+User,"leitura;acesso_basico",Acesso padrão para colaboradores
+Admin_Global,"leitura;escrita;exclusao;gerenciamento_total",Administrador global do sistema TruIM
+Super_Admin,"leitura;escrita;exclusao;configuracao_sistema",Acesso irrestrito de super usuário para manutenção
+Admin,"leitura;escrita;gerenciamento_usuarios",Administrador local com gestão de usuários
+Financeiro_Pagamentos,"leitura;executar_pagamento",Permissão para realizar pagamentos no módulo financeiro
+Financeiro_Aprovacao,"leitura;aprovar_pagamento",Permissão para aprovar pagamentos (Função Crítica)
+Compras_Solicitante,"leitura;criar_requisicao",Permite criar novas requisições de compra
+Compras_Aprovador,"leitura;aprovar_requisicao",Permite aprovar requisições de compra (Função Crítica)
+Dev_Ops,"leitura;escrita;deploy;monitoramento",Acesso técnico para operações de infraestrutura e deploy
+System_Backup,"leitura;executar_backup;acesso_direto_db",Perfil de serviço para rotinas automáticas de backup
+Auditor,"leitura;exportar_logs;visualizar_relatorios",Acesso somente leitura para auditoria e compliance
+Manager,"leitura;aprovacao_ferias;visualizar_equipe",Gestor de equipe com permissões de aprovação de RH

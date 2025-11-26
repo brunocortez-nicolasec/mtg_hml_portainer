@@ -1,3 +1,5 @@
+// material-react-app/src/layouts/observabilidade/geral/components/FinancialCards.js
+
 import React from "react";
 import PropTypes from "prop-types";
 
@@ -25,15 +27,13 @@ function FinancialCards({ prejuizoPotencial, valorMitigado, plataformaSelecionad
               <MDTypography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>Prejuízo Potencial (Mensal)</MDTypography>
               <MDTypography variant="body2" color="text" sx={{mb: 3}}>Custo total com riscos e divergências identificadas.</MDTypography>
               <Card>
-                {/* ======================= INÍCIO DA ALTERAÇÃO ======================= */}
                 <MDBox 
                   p={1} 
-                  onClick={() => onClick('prejuizo')} 
+                  onClick={() => onClick && onClick('prejuizo')} 
                   sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                 >
                   <MDTypography variant="h2" fontWeight="bold" color="error"> {prejuizoPotencial} </MDTypography>
                 </MDBox>
-                {/* ======================== FIM DA ALTERAÇÃO ======================= */}
               </Card>
             </MDBox>
           </Card>
@@ -47,15 +47,13 @@ function FinancialCards({ prejuizoPotencial, valorMitigado, plataformaSelecionad
               <MDTypography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>{valorMitigadoTitle}</MDTypography>
               <MDTypography variant="body2" color="text" sx={{mb: 3}}> Redução de 95% do prejuízo potencial com governança. </MDTypography>
               <Card>
-                {/* ======================= INÍCIO DA ALTERAÇÃO ======================= */}
                 <MDBox 
                   p={1}
-                  onClick={() => onClick('mitigado')} 
+                  onClick={() => onClick && onClick('mitigado')} 
                   sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                 >
                   <MDTypography variant="h2" fontWeight="bold" color="success"> {valorMitigado} </MDTypography>
                 </MDBox>
-                {/* ======================== FIM DA ALTERAÇÃO ======================= */}
               </Card>
             </MDBox>
           </Card>
@@ -66,10 +64,17 @@ function FinancialCards({ prejuizoPotencial, valorMitigado, plataformaSelecionad
 }
 
 FinancialCards.propTypes = {
-  prejuizoPotencial: PropTypes.string.isRequired,
-  valorMitigado: PropTypes.string.isRequired,
-  plataformaSelecionada: PropTypes.string.isRequired,
-  onClick: PropTypes.func.isRequired,
+  prejuizoPotencial: PropTypes.string, // Removido isRequired para evitar warnings iniciais
+  valorMitigado: PropTypes.string,
+  plataformaSelecionada: PropTypes.string,
+  onClick: PropTypes.func,
+};
+
+FinancialCards.defaultProps = {
+  prejuizoPotencial: "R$ 0,00",
+  valorMitigado: "R$ 0,00",
+  plataformaSelecionada: "Geral",
+  onClick: () => {},
 };
 
 export default FinancialCards;

@@ -1,5 +1,3 @@
-// material-react-app/src/layouts/observabilidade/geral/components/RisksChartCard.js
-
 import React from "react";
 import PropTypes from "prop-types";
 
@@ -7,19 +5,18 @@ import PropTypes from "prop-types";
 import Card from "@mui/material/Card";
 import VerticalBarChart from "examples/Charts/BarCharts/VerticalBarChart";
 
-// (A definição da animação 'pulse' que está no VerticalBarChart.js está correta, não precisamos dela aqui)
+function RisksChartCard({ chart, onClick, hasRisk }) {
+  // --- BLINDAGEM ---
+  // Se os dados do gráfico não estiverem prontos, não renderiza nada (evita crash interno do Chart)
+  if (!chart || !chart.datasets) return null;
 
-function RisksChartCard({ chart, onClick, hasRisk }) { // <-- 1. Recebe a nova prop 'hasRisk'
   return (
     <Card sx={{ height: "100%" }}>
       <VerticalBarChart
-// ======================= INÍCIO DA ALTERAÇÃO (Ícone Dinâmico) =======================
-        // 2. O ícone agora é dinâmico com base no 'hasRisk'
         icon={{
-          color: hasRisk ? "error" : "success", // Se houver risco = error (vermelho), senão = success (verde)
-          component: hasRisk ? "warning" : "check_circle", // Se houver risco = warning (triângulo), senão = check
+          color: hasRisk ? "error" : "success",
+          component: hasRisk ? "warning" : "check_circle",
         }}
-// ======================== FIM DA ALTERAÇÃO (Ícone Dinâmico) =========================
         title="Visão Geral de Riscos"
         description="Principais pontos de atenção consolidados"
         chart={chart}
@@ -29,11 +26,15 @@ function RisksChartCard({ chart, onClick, hasRisk }) { // <-- 1. Recebe a nova p
   );
 }
 
-// 3. Atualiza os PropTypes
 RisksChartCard.propTypes = {
-  chart: PropTypes.object.isRequired,
+  chart: PropTypes.object, // Removido isRequired para aceitar null durante loading
   onClick: PropTypes.func.isRequired,
-  hasRisk: PropTypes.bool.isRequired, // <-- Adiciona a nova prop
+  hasRisk: PropTypes.bool,
+};
+
+RisksChartCard.defaultProps = {
+  chart: null,
+  hasRisk: false,
 };
 
 export default RisksChartCard;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import axios from "axios"; // 1. Importa o axios
+import axios from "axios";
 
 // Componentes do Material UI
 import FormControl from "@mui/material/FormControl";
@@ -20,36 +20,39 @@ function AddUserModal({ open, onClose, onSave }) {
     name: "",
     email: "",
     password: "",
-    role: "Membro", // Mantido como 'role' para compatibilidade com o backend
+    role: "Membro", 
   });
   
   const [isPasswordValid, setIsPasswordValid] = useState(false);
-  // --- CORRIGIDO: 'roles' -> 'profiles' ---
   const [profiles, setProfiles] = useState([]);
 
-  // --- CORRIGIDO: 'fetchRoles' -> 'fetchProfiles' e endpoint '/profiles' ---
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   useEffect(() => {
-    const fetchProfiles = async () => { // Renomeado
+    const fetchProfiles = async () => { 
       try {
         const api = axios.create({
-          baseURL: "/",
+          baseURL: API_URL,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
-        const response = await api.get("/profiles"); // Corrigido de '/roles'
-        setProfiles(response.data); // Corrigido de 'setRoles'
+        const response = await api.get("/profiles"); 
+        const data = response.data;
+        // Blindagem de Array
+        setProfiles(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error("Erro ao buscar perfis:", error); // Mensagem corrigida
+        console.error("Erro ao buscar perfis:", error); 
+        setProfiles([]);
       }
     };
 
     if (open) {
-      fetchProfiles(); // Corrigido de 'fetchRoles'
-      // Reseta o formulário
+      fetchProfiles(); 
       setUserData({
         name: "",
         email: "",
         password: "",
-        role: "Membro", // Define o padrão
+        role: "Membro", 
       });
       setIsPasswordValid(false);
     }
@@ -105,13 +108,12 @@ function AddUserModal({ open, onClose, onSave }) {
               <Select
                 labelId="role-select-label"
                 id="role-select"
-                name="role" // Mantido como 'role'
-                value={userData.role} // Mantido como 'userData.role'
+                name="role" 
+                value={userData.role} 
                 label="Função"
                 onChange={handleChange}
                 sx={{ height: "44px" }}
               >
-                {/* --- CORRIGIDO: 'roles.map' -> 'profiles.map' --- */}
                 {profiles.map((profile) => (
                   <MenuItem key={profile.id} value={profile.name}>
                     {profile.name}

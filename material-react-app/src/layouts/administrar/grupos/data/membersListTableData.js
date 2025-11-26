@@ -24,7 +24,9 @@ export default function data(members, onRemove) {
     { Header: "ação", accessor: "action", align: "center" },
   ];
 
-  const rows = members.map(member => ({
+  // --- BLINDAGEM: (members || []) ---
+  // Garante que não quebra se a lista vier vazia ou nula
+  const rows = (members || []).map(member => ({
     user: <User image={member.profile_image} name={member.name} />,
     action: (
       <MDTypography

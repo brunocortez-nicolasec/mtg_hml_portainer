@@ -3,13 +3,16 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-// Criamos a instância, mas sem o header fixo inicial que pode estar vazio
+// --- CORREÇÃO 1: Configuração correta da URL (Sem localhost fixo) ---
+const API_URL = process.env.REACT_APP_API_URL;
+
 const api = axios.create({
-  baseURL: "/",
+  baseURL: API_URL, 
 });
 
 export function useColumnFetcher(dataSource, mappingTarget) {
-  const [columns, setColumns] = useState([]);
+  // Inicializa sempre com array vazio para não quebrar .map() no componente visual
+  const [columns, setColumns] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -24,7 +27,6 @@ export function useColumnFetcher(dataSource, mappingTarget) {
       setLoading(true);
       setError(null);
 
-      // 1. Obtém o token atualizado
       const token = localStorage.getItem("token");
       if (!token) {
           setError("Usuário não autenticado. Faça login novamente.");
@@ -32,13 +34,12 @@ export function useColumnFetcher(dataSource, mappingTarget) {
           return;
       }
       
-      // 2. Configura o header de autorização para esta requisição específica
       const authHeaders = { Authorization: `Bearer ${token}` };
 
       try {
         let fetchedCols = [];
         
-        // ======================= Lógica de Tipo (Mantida) =======================
+        // ======================= Lógica de Tipo =======================
         let currentType = dataSource.type_datasource; 
 
         if (dataSource.origem_datasource === 'SISTEMA' && dataSource.systemConfig) {
@@ -48,15 +49,13 @@ export function useColumnFetcher(dataSource, mappingTarget) {
                 currentType = dataSource.systemConfig.tipo_fonte_recursos;
             }
         } else if (dataSource.origem_datasource === 'RH' && dataSource.hrConfig) {
-             // Se RH tiver config de DB, assume DATABASE
              if (dataSource.hrConfig.db_host || dataSource.hrConfig.db_url) {
                  currentType = 'DATABASE';
              }
         }
 
         const isDatabase = currentType === 'DATABASE';
-        // ========================================================================
-
+        // ==============================================================
 
         // === CENÁRIO 1: BANCO DE DADOS ===
         if (isDatabase) {
@@ -87,12 +86,17 @@ export function useColumnFetcher(dataSource, mappingTarget) {
                    type: dbConfig.db_type,
                    schema: dbConfig.db_schema,
                    table: targetTable 
-               }, { headers: authHeaders }); // <--- TOKEN ADICIONADO AQUI
+               }, { headers: authHeaders }); 
                
-               if (response.data.columns) {
+               // --- CORREÇÃO 2: BLINDAGEM CONTRA CRASH (map is not a function) ---
+               // Garante que só atribuímos se for realmente um Array
+               if (response.data.columns && Array.isArray(response.data.columns)) {
                    fetchedCols = response.data.columns;
                } else {
-                   throw new Error(`Conexão OK, mas não foi possível ler as colunas da tabela '${targetTable}'.`);
+                   // Se conectar mas não vier array, assume vazio para não quebrar a tela
+                   fetchedCols = [];
+                   // Opcional: Lançar erro se quiser avisar o usuário
+                   // throw new Error(`Formato de colunas inválido recebido do banco.`);
                }
            } else {
                throw new Error("Configuração de banco de dados incompleta ou tabela não definida.");
@@ -113,9 +117,9 @@ export function useColumnFetcher(dataSource, mappingTarget) {
            }
 
            if (diretorio) {
-               // Passando o header com token
                const response = await api.post("/datasources/test-csv", { diretorio }, { headers: authHeaders });
-               if (response.data.header) {
+               
+               if (response.data.header && typeof response.data.header === 'string') {
                    fetchedCols = response.data.header.split(',');
                } else {
                    throw new Error("O arquivo CSV parece estar vazio ou sem cabeçalho.");
@@ -133,13 +137,13 @@ export function useColumnFetcher(dataSource, mappingTarget) {
 
       } catch (err) {
         console.error("Erro ao buscar colunas:", err);
-        // Tratamento específico para 401
         if (err.response && err.response.status === 401) {
             setError("Sessão expirada. Por favor, recarregue a página.");
         } else {
             const msg = err.response?.data?.message || err.message || "Erro ao buscar colunas.";
             setError(msg);
         }
+        // Em caso de erro, zera as colunas para não quebrar o map visual
         setColumns([]);
       } finally {
         setLoading(false);

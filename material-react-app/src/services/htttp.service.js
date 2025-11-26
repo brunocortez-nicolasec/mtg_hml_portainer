@@ -1,10 +1,18 @@
 import Axios from "axios";
 
-const API_URL = process.env.REACT_APP_API_URL; 
-Axios.defaults.baseURL = API_URL;
+// Pega a variável do .env (ou do Docker Compose). Se não tiver, usa localhost (dev).
+const API_URL = process.env.REACT_APP_API_URL;
 
 export class HttpService {
-  _axios = Axios.create();
+  // CORREÇÃO CRÍTICA AQUI:
+  // Passamos a baseURL diretamente na criação da instância.
+  _axios = Axios.create({
+    baseURL: API_URL,
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+  });
 
   addRequestInterceptor = (onFulfilled, onRejected) => {
     this._axios.interceptors.request.use(onFulfilled, onRejected);
@@ -29,14 +37,10 @@ export class HttpService {
       method,
       url,
       data,
-      headers: { 
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
+      // Headers já definidos no create, mas mantemos aqui para garantir override se necessário
     };
   };
 
-  // --- FUNÇÃO REQUEST CORRIGIDA ---
   request(options) {
     return new Promise((resolve, reject) => {
       this._axios
@@ -47,8 +51,8 @@ export class HttpService {
           if (ex.response && ex.response.data) {
             reject(ex.response.data);
           } else {
-            // 2. Se não houver resposta, é um erro de rede (servidor offline, etc.)
-            // Criamos um objeto de erro padrão para não quebrar a aplicação.
+            // 2. Se não houver resposta, é um erro de rede ou CORS
+            console.error("[HttpService] Erro de conexão:", ex);
             reject({ message: ex.message || "Erro de rede ou servidor indisponível." });
           }
         });

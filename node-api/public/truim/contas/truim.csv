@@ -1,0 +1,21 @@
+Login,ID_RH,Nome,Email,Status,Perfil,UltimoLogin,CPF
+MAT1001,MAT1001,Ana Silva,ana.silva@nicolasec.com.br,Ativo,"User",2023-10-25,53975003004
+MAT1002,MAT1002,Bruno Cortez,bruno.cortez@nicolasec.com.br,Ativo,"Admin_Global",2023-10-26,98886036004
+MAT1003,MAT1003,Carla Dias,carla.dias@nicolasec.com.br,Ativo,"Financeiro_Pagamentos;Financeiro_Aprovacao",2023-10-20,17112447005
+MAT1004,MAT1004,Daniel Moreira,daniel.moreira@nicolasec.com.br,Ativo,"Super_Admin",2023-01-15,32847702008
+MAT1005,MAT1005,Elisa Fernandes,elisa.fernandes@nicolasec.com.br,Ativo,"User",2023-10-25,94162489006
+MAT1006,MAT1006,Fabio G. Guedes,fabio.guedes@nicolasec.com.br,Ativo,"User",2023-10-24,41154546000
+MAT1007,MAT1007,Gabriela Lima,gabriela.lima@nicolasec.com.br,Ativo,"User",2023-10-26,51046836005
+MAT1008,MAT1008,Heitor Barros,heitor.barros@nicolasec.com.br,Ativo,"User",2023-10-25,26903738002
+MAT1009,MAT1009,Iris Mendes,iris.mendes@nicolasec.com.br,Ativo,"Dev_Ops",2023-10-22,18128537000
+MAT1010,MAT1010,Jorge Viana,jorge.viana@nicolasec.com.br,Inativo,"User",2023-05-10,83411453008
+svc_truim_backup,,Service Account Backup,svc.backup@nicolasec.com.br,Ativo,"System_Backup",2023-10-26,
+ext_consultor_01,,Consultor Externo,consultor.ext@vendor.com,Ativo,"Auditor",2023-10-20,
+MAT1013,MAT1013,Natália Oliveira,natalia.oliveira@nicolasec.com.br,Ativo,"User;Manager",2023-10-26,73489814002
+MAT1014,MAT1014,Otávio Costa,otavio.costa@nicolasec.com.br,Ativo,"User",2023-10-25,62831201004
+MAT1015,MAT1015,Paula Azevedo,paula.azevedo@nicolasec.com.br,Ativo,"Compras_Solicitante;Compras_Aprovador",2023-10-24,97609207000
+MAT1016,MAT1016,Rafael Souza,rafael.souza@nicolasec.com.br,Ativo,"Admin",2022-11-30,26202446006
+MAT1017,MAT1017,Simone Braga,simone.braga@nicolasec.com.br,Inativo,"User",2023-08-15,76267885006
+MAT1018,MAT1018,Thiago Campos,thiago.campos@nicolasec.com.br,Ativo,"User",2023-10-26,91684343003
+MAT1019,MAT1019,Ursula Matos,ursula.matos@nicolasec.com.br,Ativo,"User",2023-10-25,14271897003
+MAT1020,MAT1020,Victor Neves,victor.neves@nicolasec.com.br,Ativo,"User",2023-10-26,89274205001

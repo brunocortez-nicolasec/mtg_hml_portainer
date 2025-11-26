@@ -15,52 +15,56 @@ import MDButton from "components/MDButton";
 
 function EditUserModal({ open, onClose, user, onSave }) {
   const [userData, setUserData] = useState({ name: "", email: "", role: "", packageId: "" });
-  // --- CORRIGIDO: 'roles' -> 'profiles' ---
   const [profiles, setProfiles] = useState([]);
   const [packages, setPackages] = useState([]);
 
-  useEffect(() => {
-    const api = axios.create({
-      baseURL: "/",
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    });
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
 
-    // --- CORRIGIDO: 'fetchRoles' -> 'fetchProfiles' e endpoint '/profiles' ---
+  const api = axios.create({
+    baseURL: API_URL,
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  });
+
+  useEffect(() => {
     const fetchProfiles = async () => {
       try {
-        const response = await api.get("/profiles"); // Corrigido de '/roles'
-        setProfiles(response.data); // Corrigido de 'setRoles'
+        const response = await api.get("/profiles"); 
+        const data = response.data;
+        // Blindagem de Array
+        setProfiles(Array.isArray(data) ? data : []); 
       } catch (error) {
-        console.error("Erro ao buscar perfis:", error); // Mensagem corrigida
+        console.error("Erro ao buscar perfis:", error); 
+        setProfiles([]);
       }
     };
 
     const fetchPackages = async () => {
       try {
         const response = await api.get("/packages");
-        setPackages(response.data);
+        const data = response.data;
+        // Blindagem de Array
+        setPackages(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Erro ao buscar pacotes:", error);
+        setPackages([]);
       }
     };
 
     if (open) {
-      fetchProfiles(); // Corrigido de 'fetchRoles'
+      fetchProfiles();
       fetchPackages();
     }
   }, [open]);
 
   useEffect(() => {
     if (user) {
-      // --- INÍCIO DA CORREÇÃO ---
-      // O 'user' que vem do componente "pai" agora tem 'profile' (do GET /users)
       setUserData({
         name: user.name || "",
         email: user.email || "",
-        role: user.profile?.name || "", // Corrigido de 'user.role?.name'
+        role: user.profile?.name || "", 
         packageId: user.packageId || "",
       });
-      // --- FIM DA CORREÇÃO ---
     }
   }, [user]);
 
@@ -69,8 +73,6 @@ function EditUserModal({ open, onClose, user, onSave }) {
   };
 
   const handleSave = () => {
-    // A chave 'role' é mantida no 'userData'
-    // pois o backend (POST /users) espera receber a chave 'role' com o nome
     onSave(user.id, userData);
     onClose();
   };
@@ -105,13 +107,12 @@ function EditUserModal({ open, onClose, user, onSave }) {
               <InputLabel id="role-select-label">Função (Perfil)</InputLabel>
               <Select
                 labelId="role-select-label"
-                name="role" // Mantido como 'role'
-                value={userData.role} // Mantido como 'userData.role'
+                name="role" 
+                value={userData.role} 
                 label="Função (Perfil)"
                 onChange={handleChange}
                 sx={{ height: "44px" }}
               >
-                {/* --- CORRIGIDO: 'roles.map' -> 'profiles.map' --- */}
                 {profiles.map((profile) => (
                   <MenuItem key={profile.id} value={profile.name}>
                     {profile.name}

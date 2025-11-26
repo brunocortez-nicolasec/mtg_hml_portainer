@@ -24,8 +24,11 @@ function GerenciarUsuarios() {
     
     const [searchText, setSearchText] = useState("");
 
+    // --- CORREÇÃO: URL CORRETA ---
+    const API_URL = process.env.REACT_APP_API_URL;
+
     const api = axios.create({
-        baseURL: "/",
+        baseURL: API_URL,
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     });
 
@@ -33,9 +36,12 @@ function GerenciarUsuarios() {
         try {
             setLoading(true);
             const response = await api.get("/users");
-            setUsers(response.data);
+            // Blindagem de Array
+            const data = response.data;
+            setUsers(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Erro ao buscar usuários:", error);
+            setUsers([]); // Garante array vazio
             setNotification({ show: true, color: "error", message: "Erro ao carregar usuários." });
         } finally {
             setLoading(false);
@@ -55,9 +61,10 @@ function GerenciarUsuarios() {
         }
     }, [notification]);
 
+    // Agora users é garantido ser um array, então filter não quebra
     const filteredUsers = useMemo(() =>
         users.filter(user =>
-            user.name.toLowerCase().includes(searchText.toLowerCase())
+            user.name?.toLowerCase().includes(searchText.toLowerCase())
         ), [users, searchText]);
 
     useEffect(() => {
@@ -134,7 +141,6 @@ function GerenciarUsuarios() {
                 </Collapse>
             </MDBox>
 
-            {/* <<< INÍCIO DA ALTERAÇÃO >>> */}
             <MDBox mb={2} sx={{ width: { xs: "100%", md: "200px" }, ml: "auto" }}>
                 <MDInput 
                     label="Pesquisar por nome..."
@@ -143,7 +149,6 @@ function GerenciarUsuarios() {
                     onChange={(e) => setSearchText(e.target.value)}
                 />
             </MDBox>
-            {/* <<< FIM DA ALTERAÇÃO >>> */}
             
             {loading ? (
                 <MDTypography variant="body2" textAlign="center">Carregando usuários...</MDTypography>

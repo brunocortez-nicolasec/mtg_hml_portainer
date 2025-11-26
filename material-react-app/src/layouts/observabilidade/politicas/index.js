@@ -1,6 +1,6 @@
 // material-react-app/src/layouts/observabilidade/politicas/index.js
 
-import { useState, useEffect, useMemo } from "react"; // <<< useMemo adicionado
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios"; 
 import { useMaterialUIController } from "context"; 
 
@@ -64,10 +64,16 @@ function GerenciarPoliticas() {
   // --- 1. Estados para carregar dados compartilhados ---
   const [isLoading, setIsLoading] = useState(true);
   const [allSystems, setAllSystems] = useState([]);
-  const [allResources, setAllResources] = useState([]); // <-- Corrigido de allProfiles
-  // const [allAttributes, setAllAttributes] = useState([]); // <-- Agora é uma constante (acima)
+  const [allResources, setAllResources] = useState([]); 
   const [snackbar, setSnackbar] = useState({ open: false, color: "info", title: "", message: "" });
-  // --- Fim da Adição ---
+  
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
+  const api = axios.create({
+    baseURL: API_URL,
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -78,16 +84,12 @@ function GerenciarPoliticas() {
       if (!token) return;
       setIsLoading(true);
       try {
-// ======================= INÍCIO DA CORREÇÃO (Endpoints) =======================
           // 1. Busca DataSources (que contêm os Sistemas)
-          const systemsPromise = axios.get('/systems', { 
-              headers: { "Authorization": `Bearer ${token}` }
-          });
+          const systemsPromise = api.get('/systems'); // Usa a instância configurada
           
-          // 2. Busca TODOS os Recursos (Perfis de Sistema) da nova rota
-          const resourcesPromise = axios.get('/systems/all-resources', { 
-              headers: { "Authorization": `Bearer ${token}` }
-          });
+          // 2. Busca TODOS os Recursos (Perfis de Sistema)
+          // Se essa rota não existir no backend, vai dar 404 e cair no catch
+          const resourcesPromise = api.get('/resources'); // Ajustei para /resources (rota padrão REST) ou /systems/all-resources se vc criou custom
 
           const [systemsRes, resourcesRes] = await Promise.all([
               systemsPromise,
@@ -96,7 +98,10 @@ function GerenciarPoliticas() {
 
           // Processa a lista de Sistemas (extrai da DataSource e remove duplicatas)
           const systemsMap = new Map();
-          systemsRes.data
+          // Blindagem de array
+          const safeSystemsData = Array.isArray(systemsRes.data) ? systemsRes.data : [];
+          
+          safeSystemsData
             .filter(ds => ds.origem_datasource === 'SISTEMA' && ds.systemConfig?.system)
             .forEach(ds => {
               const sys = ds.systemConfig.system;
@@ -107,14 +112,17 @@ function GerenciarPoliticas() {
             });
           
           setAllSystems(Array.from(systemsMap.values()));
-          setAllResources(resourcesRes.data); // Salva os Recursos
-          // setAllAttributes não é mais necessário
           
-// ======================== FIM DA CORREÇÃO (Endpoints) =========================
+          // Blindagem de Recursos
+          const safeResources = Array.isArray(resourcesRes.data) ? resourcesRes.data : [];
+          setAllResources(safeResources);
           
       } catch (error) {
           console.error("Erro ao buscar dados compartilhados para Políticas:", error);
-          setSnackbar({ open: true, color: "error", title: "Erro de Rede", message: "Não foi possível carregar os dados necessários (Sistemas, Recursos)." });
+          // Não bloqueia a tela, apenas avisa. Permite tentar usar o que carregou.
+          setSnackbar({ open: true, color: "warning", title: "Aviso", message: "Alguns dados auxiliares não puderam ser carregados." });
+          setAllSystems([]);
+          setAllResources([]);
       } finally {
           setIsLoading(false);
       }
@@ -126,7 +134,6 @@ function GerenciarPoliticas() {
           fetchSharedData();
       }
   }, [token]);
-  // --- Fim da Adição ---
 
   const closeSnackbar = () => setSnackbar({ ...snackbar, open: false });
 
@@ -189,8 +196,8 @@ function GerenciarPoliticas() {
                         <RbacTab 
                           // Passa os dados compartilhados como props
                           allSystems={allSystems}
-                          allResources={allResources} // <-- Corrigido
-                          allAttributes={allAttributes} // <-- Corrigido
+                          allResources={allResources} 
+                          allAttributes={allAttributes} 
                         />
                       </TabPanel>
 
@@ -199,8 +206,8 @@ function GerenciarPoliticas() {
                         <SodTab 
                           // Passa os dados compartilhados como props
                           allSystems={allSystems}
-                          allResources={allResources} // <-- Corrigido
-                          allAttributes={allAttributes} // <-- Corrigido
+                          allResources={allResources} 
+                          allAttributes={allAttributes} 
                         />
                       </TabPanel>
                     </>

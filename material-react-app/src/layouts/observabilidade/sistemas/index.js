@@ -15,7 +15,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContentText from "@mui/material/DialogContentText";
 import Tooltip from "@mui/material/Tooltip";
-// Menu e MenuItem foram removidos pois agora usamos Dialog
 
 // Material Dashboard 2 React components
 import MDBox from "components/MDBox";
@@ -29,7 +28,7 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import DashboardNavbar from "examples/Navbars/DashboardNavbar";
 import DataTable from "examples/Tables/DataTable";
 
-// Importa os 3 modais separados (mantidos conforme solicitado)
+// Importa os 3 modais separados
 import RHDataSourceModal from "./components/RHDataSourceModal";
 import IDMDataSourceModal from "./components/IDMDataSourceModal";
 import SistemaDataSourceModal from "./components/SistemaDataSourceModal";
@@ -53,7 +52,7 @@ function GerenciarDataSources() {
   const [activeModal, setActiveModal] = useState(null);
   const [editingDataSource, setEditingDataSource] = useState(null);
   
-  // Estado para o Modal de Seleção de Tipo (substitui o Menu)
+  // Estado para o Modal de Seleção de Tipo
   const [isSelectionDialogOpen, setIsSelectionDialogOpen] = useState(false);
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -62,14 +61,20 @@ function GerenciarDataSources() {
   const [isProfilesModalOpen, setIsProfilesModalOpen] = useState(false);
   const [systemForProfiles, setSystemForProfiles] = useState(null);
 
+  // --- CORREÇÃO: Apenas a variável de ambiente, sem fallback para localhost ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const fetchSystems = async () => {
     if (!token) return;
     setIsLoading(true);
     try {
-      const response = await axios.get('/systems', {
+      const response = await axios.get(`${API_URL}/systems`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
-      setSystems(response.data);
+      
+      const data = response.data;
+      // Blindagem para garantir array
+      setSystems(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar fontes de dados:", error);
       setSystems([]);
@@ -89,17 +94,14 @@ function GerenciarDataSources() {
   }, [token]);
 
   // Handlers
-  
-  // Abre o modal de seleção (Dialog)
   const handleOpenSelectionDialog = () => {
     setIsSelectionDialogOpen(true);
   };
 
-  // Escolhe o tipo e abre o formulário correspondente
   const handleSelectAddType = (type) => {
-    setEditingDataSource(null); // Garante que é criação
-    setActiveModal(type); // "RH", "IDM" ou "SISTEMA"
-    setIsSelectionDialogOpen(false); // Fecha o modal de seleção
+    setEditingDataSource(null); 
+    setActiveModal(type); 
+    setIsSelectionDialogOpen(false); 
   };
   
   const handleEditClick = (dataSource) => {
@@ -131,7 +133,7 @@ function GerenciarDataSources() {
 
       if (isEditing) {
         action = "atualizada";
-        response = await axios.patch(`/systems/${editingDataSource.id}`, formData, { headers });
+        response = await axios.patch(`${API_URL}/systems/${editingDataSource.id}`, formData, { headers });
         
         setNotification({
           open: true,
@@ -143,12 +145,11 @@ function GerenciarDataSources() {
         fetchSystems();
 
       } else {
-        response = await axios.post('/systems', formData, { headers });
+        response = await axios.post(`${API_URL}/systems`, formData, { headers });
         const newDataSource = response.data;
         
         handleCloseModal();
         
-        // Redirecionamento com Delay
         if (newDataSource && newDataSource.id) {
           setTimeout(() => {
               navigate(`/observabilidade/mapeamento-dados/${newDataSource.id}`);
@@ -188,7 +189,7 @@ function GerenciarDataSources() {
   const handleConfirmDelete = async () => {
     if (!systemToDelete) return;
     try {
-      await axios.delete(`/systems/${systemToDelete.id}`, {
+      await axios.delete(`${API_URL}/systems/${systemToDelete.id}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       setNotification({ open: true, color: "success", title: "Sucesso", content: `Fonte de dados "${systemToDelete.name_datasource}" excluída.` });
@@ -230,11 +231,9 @@ function GerenciarDataSources() {
       Header: "Tipo",
       accessor: "type_datasource",
       align: "center",
-      // --- Lógica para exibir o Tipo correto com Nome do Banco ---
       Cell: ({ row: { original: dataSource } }) => {
         let displayType = dataSource.type_datasource || "N/A";
 
-        // Helper para formatar o nome do banco (ex: postgres -> Postgres)
         const formatDbName = (type) => type ? ` - ${type.charAt(0).toUpperCase() + type.slice(1)}` : '';
 
         // 1. SISTEMA
@@ -251,7 +250,7 @@ function GerenciarDataSources() {
                 displayType = "CSV";
             }
         } 
-        // 2. RH (CORREÇÃO APLICADA: Checa host ou url, e formata nome)
+        // 2. RH
         else if (dataSource.origem_datasource === "RH" && dataSource.hrConfig) {
             const { db_host, db_url, db_type } = dataSource.hrConfig;
             
@@ -283,13 +282,13 @@ function GerenciarDataSources() {
                      mappingRH.identity_id_hr && 
                      mappingRH.email_hr && 
                      mappingRH.status_hr;
-                     
+                      
         } else if (origem_datasource === "IDM") {
           isMapped = mappingIDM && 
                      mappingIDM.identity_id_idm && 
                      mappingIDM.email_idm && 
                      mappingIDM.status_idm;
-                     
+                      
         } else if (origem_datasource === "SISTEMA") {
           const map = mappingSystem;
           const contasMapeadas = map && map.accounts_id_in_system && map.accounts_email && map.accounts_identity_id;
@@ -352,9 +351,13 @@ function GerenciarDataSources() {
     },
   ], [systems]);
 
-  const rows = useMemo(() => systems.map(system => ({
-    ...system,
-  })), [systems]);
+  // Blindagem no mapeamento das linhas
+  const rows = useMemo(() => {
+    const safeSystems = Array.isArray(systems) ? systems : [];
+    return safeSystems.map(system => ({
+      ...system,
+    }));
+  }, [systems]);
 
 
   return (
@@ -373,7 +376,6 @@ function GerenciarDataSources() {
                   Gerenciamento de Fontes de Dados
                 </MDTypography>
                 
-                {/* Botão que abre o Modal de Seleção */}
                 <MDButton variant="gradient" color="dark" onClick={handleOpenSelectionDialog}>
                   <Icon sx={{ fontWeight: "bold" }}>add</Icon>
                   &nbsp;Adicionar Fonte de Dados

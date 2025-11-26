@@ -1,7 +1,7 @@
 // material-react-app/src/layouts/observabilidade/politicas/components/rbac/RbacTable.js
 
-import React from "react";
-import PropTypes from 'prop-types'; // <<< Adicionado para PropTypes
+import React, { useMemo } from "react";
+import PropTypes from 'prop-types'; 
 
 // @mui material components
 import CircularProgress from "@mui/material/CircularProgress";
@@ -19,27 +19,23 @@ import DataTable from "examples/Tables/DataTable";
 // Configs
 import { conditionTypes, comparisonOperators, logicalOperators } from "./rbacConfig";
 
-// ======================= INÍCIO DA CORREÇÃO (Props) =======================
-// 1. A prop 'profiles' foi renomeada para 'resources'
 function RbacTable({ loading, rules, resources, attributes, onEdit, onDelete }) {
-// ======================== FIM DA CORREÇÃO (Props) =========================
 
-  // A função getConditionDisplay não precisa de alterações,
-  // pois 'profiles' e 'attributes' são as listas completas vindas do componente pai.
+  // Garante que as listas de lookup sejam arrays para evitar crash no .find()
+  const safeResources = Array.isArray(resources) ? resources : [];
+  const safeAttributes = Array.isArray(attributes) ? attributes : [];
+
   const getConditionDisplay = (rule) => {
     switch (rule.conditionType) {
-// ======================= INÍCIO DA CORREÇÃO (Lógica) =======================
-      case "BY_PROFILE": { // Adicionado chaves para escopo
-        // 2. Usa 'resources' e 'requiredResourceId'
-        const reqProfileName = resources.find((p) => p.id === rule.requiredResourceId)?.name_resource;
-        return `Requer Recurso: ${reqProfileName || `(ID: ${rule.requiredResourceId})`}`;
+      case "BY_PROFILE": { 
+        const reqProfileName = safeResources.find((p) => p.id === rule.requiredResourceId)?.name_resource;
+        return `Requer Recurso: ${reqProfileName || `(ID: ${rule.requiredResourceId || '?'})`}`;
       }
-// ======================== FIM DA CORREÇÃO (Lógica) =========================
       case "BY_SINGLE_ATTRIBUTE": {
-        const attrName = attributes.find((a) => a.id === rule.attributeName)?.name || rule.attributeName; // Corrigido
+        const attrName = safeAttributes.find((a) => a.id === rule.attributeName)?.name || rule.attributeName; 
         const opLabelSingle =
           comparisonOperators.find((op) => op.id === rule.attributeOperator)?.label ||
-          rule.attributeOperator || '(?)'; // Fallback
+          rule.attributeOperator || '(?)'; 
         return `Atributo: ${attrName} ${opLabelSingle} "${rule.attributeValue}"`;
       }
       case "BY_MULTIPLE_ATTRIBUTES": {
@@ -48,8 +44,8 @@ function RbacTable({ loading, rules, resources, attributes, onEdit, onDelete }) 
         const logicLabel = logicalOperators.find((lo) => lo.id === rule.logicalOperator)?.id || "E";
         return rule.attributeConditions
           .map((cond) => {
-            const attrNameCond = attributes.find((a) => a.id === cond.attributeName)?.name || cond.attributeName; // Corrigido
-            const opLabelMulti = comparisonOperators.find((op) => op.id === cond.operator)?.label || cond.operator || '(?)'; // Fallback
+            const attrNameCond = safeAttributes.find((a) => a.id === cond.attributeName)?.name || cond.attributeName; 
+            const opLabelMulti = comparisonOperators.find((op) => op.id === cond.operator)?.label || cond.operator || '(?)'; 
             return `(${attrNameCond} ${opLabelMulti} "${cond.attributeValue}")`;
           })
           .join(` ${logicLabel} `);
@@ -59,21 +55,23 @@ function RbacTable({ loading, rules, resources, attributes, onEdit, onDelete }) 
     }
   };
 
-  // --- 1. Definição de Colunas ATUALIZADA ---
   const rbacColumns = [
-    { Header: "Nome da Regra", accessor: "name", width: "15%" }, // Largura ajustada
-// ======================= INÍCIO DA CORREÇÃO (Colunas) =======================
+    { Header: "Nome da Regra", accessor: "name", width: "15%" }, 
     { 
       Header: "Sistema", 
-      accessor: "system.name_system", // 3. Corrigido para 'name_system'
+      accessor: "system.name_system", 
       width: "15%",
-      Cell: ({ value }) => <MDTypography variant="caption">{value || '(Inválido)'}</MDTypography>
+      // Proteção contra sistema nulo
+      Cell: ({ row }) => (
+          <MDTypography variant="caption">
+              {row.original.system?.name_system || '(Inválido)'}
+          </MDTypography>
+      )
     },
-// ======================== FIM DA CORREÇÃO (Colunas) =========================
     {
       Header: "Tipo Condição",
       accessor: "conditionType",
-      width: "15%", // Largura ajustada
+      width: "15%", 
       Cell: ({ value }) => {
           const type = conditionTypes.find((ct) => ct.id === value);
            return (
@@ -89,31 +87,34 @@ function RbacTable({ loading, rules, resources, attributes, onEdit, onDelete }) 
       Header: "Condição",
       accessor: "conditionDisplay",
       Cell: ({ row }) => getConditionDisplay(row.original),
-      width: "30%", // Largura ajustada
+      width: "30%", 
     },
-// ======================= INÍCIO DA CORREÇÃO (Colunas) =======================
     {
-      Header: "Recurso Concedido", // Corrigido
-      accessor: "grantedResource.name_resource", // 4. Corrigido
-      width: "15%", // Largura ajustada
-      Cell: ({ value }) => <MDTypography variant="caption">{value || '(Inválido)'}</MDTypography>, // Padronizado
+      Header: "Recurso Concedido", 
+      accessor: "grantedResource.name_resource", 
+      width: "15%", 
+      // Proteção contra recurso nulo
+      Cell: ({ row }) => (
+          <MDTypography variant="caption">
+              {row.original.grantedResource?.name_resource || '(Inválido)'}
+          </MDTypography>
+      ), 
     },
-// ======================== FIM DA CORREÇÃO (Colunas) =========================
-    { Header: "Owner", accessor: "owner", Cell: ({ value }) => <MDTypography variant="caption">{value || "N/A"}</MDTypography>, width: "10%" }, // Padronizado
+    { Header: "Owner", accessor: "owner", Cell: ({ value }) => <MDTypography variant="caption">{value || "N/A"}</MDTypography>, width: "10%" }, 
     {
       Header: "Ações",
       accessor: "actions",
       align: "center",
       width: "10%",
       Cell: ({ row: { original } }) => (
-        <MDBox display="flex" justifyContent="center"> {/* Padronizado */}
+        <MDBox display="flex" justifyContent="center"> 
           <Tooltip title="Editar">
-            <IconButton onClick={() => onEdit(original)} size="small"> {/* Padronizado */}
+            <IconButton onClick={() => onEdit(original)} size="small"> 
               <Icon>edit</Icon>
             </IconButton>
           </Tooltip>
           <Tooltip title="Deletar">
-            <IconButton color="error" onClick={() => onDelete(original.id)} size="small"> {/* Padronizado */}
+            <IconButton color="error" onClick={() => onDelete(original.id)} size="small"> 
               <Icon>delete</Icon>
             </IconButton>
           </Tooltip>
@@ -121,8 +122,10 @@ function RbacTable({ loading, rules, resources, attributes, onEdit, onDelete }) 
       ),
     },
   ];
-  // --- Fim da Modificação ---
 
+  // --- BLINDAGEM PRINCIPAL DO ARRAY DE REGRAS ---
+  // Garante que o componente DataTable nunca receba undefined
+  const safeRules = useMemo(() => Array.isArray(rules) ? rules : [], [rules]);
 
   if (loading) {
     return (
@@ -137,29 +140,32 @@ function RbacTable({ loading, rules, resources, attributes, onEdit, onDelete }) 
 
   return (
     <DataTable
-      table={{ columns: rbacColumns, rows: rules }}
+      table={{ columns: rbacColumns, rows: safeRules }}
       isSorted={true}
       entriesPerPage={true}
       showTotalEntries={true}
       canSearch={true}
       pagination={{ variant: "gradient", color: "info" }}
-      tableProps={{ size: 'small' }} // Sugestão para tabela mais compacta
-      noEndBorder // Sugestão
+      tableProps={{ size: 'small' }} 
+      noEndBorder 
     />
   );
 }
 
-// --- 2. Adicionar PropTypes ---
-// ======================= INÍCIO DA CORREÇÃO (PropTypes) =======================
 RbacTable.propTypes = {
   loading: PropTypes.bool.isRequired,
-  rules: PropTypes.arrayOf(PropTypes.object).isRequired,
-  resources: PropTypes.arrayOf(PropTypes.object).isRequired, // 5. Corrigido
+  rules: PropTypes.arrayOf(PropTypes.object), // Removido isRequired para segurança
+  resources: PropTypes.arrayOf(PropTypes.object).isRequired, 
   attributes: PropTypes.arrayOf(PropTypes.object).isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
 };
-// ======================== FIM DA CORREÇÃO (PropTypes) =========================
-// --- Fim da Adição ---
+
+// Defaults para evitar crash
+RbacTable.defaultProps = {
+    rules: [],
+    resources: [],
+    attributes: []
+};
 
 export default RbacTable;

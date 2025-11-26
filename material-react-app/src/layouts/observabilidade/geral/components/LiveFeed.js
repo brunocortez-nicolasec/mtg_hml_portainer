@@ -25,6 +25,8 @@ import MDButton from "components/MDButton";
 import DataTable from "examples/Tables/DataTable";
 import colors from "assets/theme/base/colors";
 import MDBadge from "components/MDBadge";
+import Stack from "@mui/material/Stack"; // Adicionado para consistência com outros filtros
+import Chip from "@mui/material/Chip";   // Adicionado para consistência
 
 // --- COMPONENTE HELPER PADRONIZADO ---
 function DetailItem({ icon, label, value, children, darkMode }) {
@@ -33,11 +35,8 @@ function DetailItem({ icon, label, value, children, darkMode }) {
     <MDBox display="flex" alignItems="center" mb={1.5} lineHeight={1}>
       <Icon color="secondary" fontSize="small" sx={{ mr: 1.5 }}>{icon}</Icon>
       <MDTypography variant="button" fontWeight="bold" color="text">{label}:&nbsp;</MDTypography>
-      {/* Render value if it exists and is not empty */}
       {value != null && value !== '' && (<MDTypography variant="button" fontWeight="regular" color={valueColor}>{value}</MDTypography>)}
-      {/* Render N/A if value is null/undefined/empty/false/0 and no children */}
         {!value && value !== 0 && value !== false && !children && (<MDTypography variant="button" fontWeight="regular" color={valueColor}>N/A</MDTypography>)}
-      {/* Render children if provided */}
       {children}
     </MDBox>
   );
@@ -57,26 +56,13 @@ DetailItem.defaultProps = {
 };
 
 
-// --- INÍCIO DA CORREÇÃO: MODAL DE DETALHES (LIVEFEED) ---
 const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergenceLabel }, ref) => {
-  if (!user) return null; // Don't render if no user data
+  if (!user) return null; 
 
-  // Determine if the item represents only an RH Identity (ACCESS_NOT_GRANTED case)
-  // Check if divergenceDetails exists and contains the specific code
   const isIdentityOnly = user.divergenceDetails?.some(d => d.code === 'ACCESS_NOT_GRANTED');
-
-  // --- CORREÇÃO AQUI ---
-  // Get RH data directly from the top-level 'rhData' field provided by the backend.
-  // For ACCESS_NOT_GRANTED, the 'user' object *is* the RH data.
   const identityData = isIdentityOnly ? user : (user.rhData || null);
-
-  // Get Account data. For ACCESS_NOT_GRANTED, there's no account data.
-  // For other cases, use the main 'user' object as it represents the account.
   const accountData = isIdentityOnly ? null : user;
-  // --- FIM DA CORREÇÃO ---
 
-
-  // Function to render detailed comparison of divergences
   const renderComparisonSection = () => {
     if (!user?.divergenceDetails || user.divergenceDetails.length === 0) {
       return (
@@ -92,9 +78,6 @@ const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergen
     return user.divergenceDetails.map((divergence, index) => {
       const { code, rhData: divRhData, appData: divAppData, targetSystem, text } = divergence;
       let specificDetails = null;
-
-      // Use the account's sourceSystem if appData is not available in divergence (e.g., ORPHAN)
-      // Corrigido para ler 'name_system' do backend
       const appSystemName = divAppData?.system?.name_system || accountData?.sourceSystem || 'Sistema App';
 
       switch (code) {
@@ -174,7 +157,6 @@ const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergen
     <Box ref={ref} tabIndex={-1}>
       <Card sx={{ width: "80vw", maxWidth: "700px", maxHeight: "90vh", overflowY: "auto" }}>
         <MDBox p={2} display="flex" justifyContent="space-between" alignItems="center">
-          {/* Title changes based on whether it's just Identity or Account */}
           <MDTypography variant="h5">Detalhes da {isIdentityOnly ? "Identidade (RH)" : "Conta"}</MDTypography>
           <Icon
             sx={({ typography: { size }, palette: { dark, white } }) => ({
@@ -192,13 +174,10 @@ const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergen
         
         <MDBox p={3} pt={1}>
           <Grid container spacing={3}>
-            {/* Coluna 1: Dados da Identidade (RH) */}
             <Grid item xs={12} md={6}>
               <MDTypography variant="h6" fontWeight="medium" sx={{ mb: 2 }}>
-                {/* Title depends on whether identityData was found */}
                 {identityData ? "Identidade Vinculada (RH)" : "Identidade (RH)"}
               </MDTypography>
-              {/* Show details if identityData exists, otherwise show Orphan message */}
               {identityData ? (
                 <>
                   <DetailItem icon="person" label="Nome" value={identityData.name_hr} darkMode={darkMode} />
@@ -213,19 +192,15 @@ const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergen
               )}
             </Grid>
             
-            {/* Coluna 2: Dados da Conta (App) ou Divergência ACCESS_NOT_GRANTED */}
             <Grid item xs={12} md={6}>
-              {/* If it's identity only (ACCESS_NOT_GRANTED), show the divergence comparison */}
               {isIdentityOnly ? (
                 <MDBox>
                   <MDTypography variant="h6" fontWeight="medium" sx={{ mb: 2 }}>Inconsistência</MDTypography>
                   {renderComparisonSection()}
                 </MDBox>
               ) : (
-                // Otherwise, show Account details
                 <MDBox>
                   <MDTypography variant="h6" fontWeight="medium" sx={{ mb: 2 }}>Conta (Sistema)</MDTypography>
-                  {/* Use accountData safely */}
                   <DetailItem icon="computer" label="Sistema" value={accountData?.sourceSystem} darkMode={darkMode} /> 
                   <DetailItem icon="vpn_key" label="ID no Sistema" value={accountData?.id_user} darkMode={darkMode} />
                   <DetailItem icon="person_outline" label="Nome na Conta" value={accountData?.name} darkMode={darkMode} />
@@ -238,7 +213,6 @@ const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergen
             </Grid>
           </Grid>
 
-          {/* Show Divergence comparison section only if it's NOT just an Identity */}
           {!isIdentityOnly && (
             <>
               <Divider sx={{ my: 2 }} />
@@ -255,18 +229,7 @@ const DivergenceModal = React.forwardRef(({ user, onClose, darkMode, getDivergen
     </Box>
   );
 });
-DivergenceModal.propTypes = {
-    user: PropTypes.object, // Can be null initially
-    onClose: PropTypes.func.isRequired,
-    darkMode: PropTypes.bool,
-    getDivergenceLabel: PropTypes.func.isRequired,
-};
-DivergenceModal.defaultProps = {
-    user: null,
-    darkMode: false,
-};
 DivergenceModal.displayName = 'DivergenceModal';
-// --- FIM DA CORREÇÃO ---
 
 
 const AuthorCell = ({ nome, tipo }) => (
@@ -279,52 +242,52 @@ const AuthorCell = ({ nome, tipo }) => (
         </MDBox>
     </MDBox>
 );
-AuthorCell.propTypes = { nome: PropTypes.string, tipo: PropTypes.string };
-AuthorCell.defaultProps = { nome: null, tipo: null };
 
 const StatusCell = ({ status }) => {
     let color = "secondary";
     let text = status ? String(status).toUpperCase() : "-";
     if (text === "ATIVO") color = "success";
     if (text === "INATIVO") color = "error";
-    if (text === "NÃO ENCONTRADO") color = "warning"; // Changed color for clarity
+    if (text === "NÃO ENCONTRADO") color = "warning"; 
     return <MDTypography variant="caption" color={color} fontWeight="medium">{text}</MDTypography>;
 };
-StatusCell.propTypes = { status: PropTypes.string };
-StatusCell.defaultProps = { status: null };
 
 
-function LiveFeed({ data, isLoading }) { // Added isLoading prop
+function LiveFeed({ data, isLoading }) { 
     const [controller] = useMaterialUIController();
     const { token, darkMode } = controller;
     const [systemOptions, setSystemOptions] = useState([]);
 
-// ======================= INÍCIO DA CORREÇÃO (fetchSystems) =======================
+    // --- CORREÇÃO: URL CORRETA ---
+    const API_URL = process.env.REACT_APP_API_URL;
+
+    const api = axios.create({
+        baseURL: API_URL,
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
     useEffect(() => {
         const fetchSystems = async () => {
             if (!token) return;
             try {
-                const response = await axios.get('/systems', { // 1. Busca DataSources
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
+                // Agora usa a instância api configurada
+                const response = await api.get('/systems');
                 
-                // 2. Mapeia a resposta para extrair nomes de sistemas únicos
+                // Blindagem de Array
+                const safeData = Array.isArray(response.data) ? response.data : [];
+                
                 const systemNamesSet = new Set(
-                    response.data
-                        // 3. Filtra apenas fontes do tipo "SISTEMA" que têm um sistema vinculado
+                    safeData
                         .filter(ds => ds.origem_datasource === 'SISTEMA' && ds.systemConfig?.system?.name_system)
-                        // 4. Pega o nome do sistema (name_system)
                         .map(ds => ds.systemConfig.system.name_system)
                 );
-                
-                setSystemOptions(Array.from(systemNamesSet)); // 5. Define as opções com os nomes corretos
+                setSystemOptions(Array.from(systemNamesSet)); 
             } catch (error) {
-                console.error("Erro ao buscar a lista de sistemas para os filtros:", error);
+                console.error("Erro ao buscar a lista de sistemas:", error);
             }
         };
         fetchSystems();
     }, [token]);
-// ======================== FIM DA CORREÇÃO (fetchSystems) =========================
 
 
     const [searchTerm, setSearchTerm] = useState("");
@@ -332,15 +295,14 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
     const [selectedUser, setSelectedUser] = useState(null);
     const [anchorEl, setAnchorEl] = useState(null);
     
-    // Define initialFilters clearly
     const initialFilters = useMemo(() => ({ 
         nome: "", 
         email: "", 
         perfil: "", 
-        sistema: null, // Expect string or null
-        divergencia: null, // Expect 'Sim', 'Não', or null
-        criticas: null, // Expect 'Sim', 'Não', or null
-        divergenceType: null // Expect object { code: '...', label: '...' } or null
+        sistema: null, 
+        divergencia: null, 
+        criticas: null, 
+        divergenceType: null 
     }), []);
 
     const divergenceOptions = useMemo(() => [
@@ -359,7 +321,6 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
     
     const open = Boolean(anchorEl);
     
-    // Moved divergenceLabels inside component or pass as prop if needed elsewhere
     const divergenceLabels = useMemo(() => ({
         ACCESS_NOT_GRANTED: "Acesso Previsto Não Concedido",
         ZOMBIE_ACCOUNT: "Acesso Ativo Indevido",
@@ -385,11 +346,11 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
     // PDF Generation
     const handleGeneratePdf = () => {
         const doc = new jsPDF();
-        const tableColumns = tableData.columns.map(c => c.Header); // Use table headers
+        const tableColumns = tableData.columns.map(c => c.Header); 
         const tableRows = [];
 
-        // Use the filtered rawData for export
-        tableData.rawData.forEach(user => {
+        // Safe check for rawData
+        (tableData.rawData || []).forEach(user => {
             const rowData = [
                 `${user.name || '-'} (Tipo: ${user.userType || 'N/A'})`,
                 user.email || '-',
@@ -403,7 +364,6 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
             tableRows.push(rowData);
         });
         
-        // Adjust column header if needed
         const adjustedColumns = tableColumns.map(col => col === 'NOME' ? 'NOME (TIPO)' : col);
 
         doc.text("Relatório - Live Feed", 14, 15);
@@ -411,8 +371,8 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
             head: [adjustedColumns],
             body: tableRows,
             startY: 20,
-            styles: { fontSize: 8 }, // Smaller font for potentially wide table
-            headStyles: { fillColor: [0, 123, 255] }, // Blue header
+            styles: { fontSize: 8 }, 
+            headStyles: { fillColor: [0, 123, 255] }, 
         });
         doc.save(`relatorio_live_feed_${new Date().toISOString().slice(0,10)}.pdf`);
     };
@@ -420,7 +380,8 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
 
     // Memoized Table Data processing
     const tableData = useMemo(() => {
-        let filteredData = data || []; // Start with the passed data
+        // --- BLINDAGEM MÁXIMA ---
+        let filteredData = Array.isArray(data) ? data : []; 
         
         // Apply Search Term
         if (searchTerm.trim() !== "") {
@@ -428,12 +389,12 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
             filteredData = filteredData.filter(user => 
                 (user.name && user.name.toLowerCase().includes(lowerSearch)) ||
                 (user.email && user.email.toLowerCase().includes(lowerSearch)) ||
-                (user.id_user && String(user.id_user).toLowerCase().includes(lowerSearch)) || // Ensure id_user is string for includes
+                (user.id_user && String(user.id_user).toLowerCase().includes(lowerSearch)) || 
                 (user.sourceSystem && user.sourceSystem.toLowerCase().includes(lowerSearch))
             );
         }
         
-        // Apply Advanced Filters if any are set
+        // Apply Advanced Filters
         if (Object.keys(filters).some(key => filters[key] !== initialFilters[key])) {
              filteredData = filteredData.filter(u => {
                  const matchNome = !filters.nome || (u.name && u.name.toLowerCase().includes(filters.nome.toLowerCase()));
@@ -450,9 +411,8 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
         
         // Map filtered data to table rows format
         const rows = filteredData.map(u => ({
-          ...u, // Spread original user data
-          // Cell renderers:
-          nome: ( // Make entire cell clickable
+          ...u, 
+          nome: ( 
             <MDBox onClick={() => handleOpenModal(u)} sx={{ cursor: "pointer", width: '100%' }}>
               <AuthorCell nome={u.name} tipo={u.userType} />
             </MDBox>
@@ -475,8 +435,8 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
 
         return {
             columns: [ 
-                { Header: "NOME", accessor: "nome", width: "20%", align: "left" }, // Keep align left
-                { Header: "EMAIL", accessor: "email", width: "20%", align: "left" }, // Keep align left
+                { Header: "NOME", accessor: "nome", width: "20%", align: "left" }, 
+                { Header: "EMAIL", accessor: "email", width: "20%", align: "left" }, 
                 { Header: "SISTEMA", accessor: "sourceSystem", align: "center" },
                 { Header: "STATUS RH", accessor: "rh_status", align: "center"},
                 { Header: "STATUS APP", accessor: "app_status", align: "center"},
@@ -485,14 +445,13 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
                 { Header: "CRÍTICAS", accessor: "criticas", align: "center" },
             ],
             rows,
-            rawData: filteredData, // Keep raw filtered data for export
+            rawData: filteredData, 
         };
-    }, [data, filters, searchTerm, handleOpenModal]); // Dependencies for memoization
+    }, [data, filters, searchTerm, initialFilters]); 
 
     return (
         <>
-            {/* Modal for showing divergence details */}
-            {isModalOpen && ( // Render modal conditionally
+            {isModalOpen && ( 
                 <Modal open={isModalOpen} onClose={handleCloseModal} sx={{ display: "grid", placeItems: "center" }}>
                     <DivergenceModal 
                         user={selectedUser} 
@@ -503,16 +462,13 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
                 </Modal>
             )}
 
-            {/* Main Card for Live Feed Table */}
             <Card>
-                <MDBox p={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap"> {/* Added flexWrap */}
-                    <MDTypography variant="h4" fontWeight="bold" color="info" textGradient sx={{ flexShrink: 0, mr: 2 }}> {/* Added mr */}
+                <MDBox p={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap"> 
+                    <MDTypography variant="h4" fontWeight="bold" color="info" textGradient sx={{ flexShrink: 0, mr: 2 }}> 
                         Live Feed
                     </MDTypography>
-                    <MDBox display="flex" alignItems="center" gap={1} sx={{ flexGrow: 1, justifyContent: { xs: 'center', md: 'flex-end' }, my: { xs: 1, md: 0 } }}> {/* Responsive justify */}
-                        {/* Search Input - Removed for DataTable built-in search */}
-                        
-                        <MDButton variant="gradient" color="info" size="small" onClick={handleFilterMenuOpen} sx={{ minWidth: '100px'}}> {/* Added minWidth */}
+                    <MDBox display="flex" alignItems="center" gap={1} sx={{ flexGrow: 1, justifyContent: { xs: 'center', md: 'flex-end' }, my: { xs: 1, md: 0 } }}> 
+                        <MDButton variant="gradient" color="info" size="small" onClick={handleFilterMenuOpen} sx={{ minWidth: '100px'}}> 
                             Filtros <Icon>keyboard_arrow_down</Icon>
                         </MDButton>
                         <MDButton variant="outlined" color="info" size="small" onClick={handleGeneratePdf} sx={{ flexShrink: 0 }}>
@@ -521,67 +477,58 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
                     </MDBox>
                 </MDBox>
 
-                {/* Filter Menu */}
                 <Menu 
                     anchorEl={anchorEl} 
                     open={open} 
                     onClose={handleFilterMenuClose} 
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} 
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    PaperProps={{ sx: { maxHeight: '80vh', overflowY: 'auto' } }} // Make menu scrollable
+                    PaperProps={{ sx: { maxHeight: '80vh', overflowY: 'auto' } }} 
                 >
                     <MDBox p={2} sx={{ width: '300px' }}>
                         <MDTypography variant="button" fontWeight="medium">Filtros Avançados</MDTypography>
-                        {/* Filter Fields */}
                         <MDBox mt={2}><TextField label="Nome" name="nome" value={tempFilters.nome} onChange={handleTempFilterChange} fullWidth size="small" /></MDBox>
                         <MDBox mt={2}><TextField label="Email" name="email" value={tempFilters.email} onChange={handleTempFilterChange} fullWidth size="small" /></MDBox>
                         <MDBox mt={2}><TextField label="Perfil" name="perfil" value={tempFilters.perfil} onChange={handleTempFilterChange} fullWidth size="small" /></MDBox>
                         <MDBox mt={2}>
                             <Autocomplete 
-// ======================= INÍCIO DA CORREÇÃO (Opção em Branco) =======================
-                                options={systemOptions} // 1. Remove o ['', ...systemOptions]
+                                options={systemOptions} 
                                 getOptionLabel={(option) => option || ""}
                                 value={tempFilters.sistema}
-                                onChange={(event, newValue) => handleTempAutocompleteChange('sistema', newValue)} // 2. Simplificado
-// ======================== FIM DA CORREÇÃO (Opção em Branco) =========================
+                                onChange={(event, newValue) => handleTempAutocompleteChange('sistema', newValue)} 
                                 renderInput={(params) => <TextField {...params} label="Sistema" size="small"/>} 
                             />
                         </MDBox>
                         <MDBox mt={2}>
                             <Autocomplete 
-                                options={[{ label: 'Todos', code: null }, ...divergenceOptions]} // Add 'Todos' option
+                                options={[{ label: 'Todos', code: null }, ...divergenceOptions]} 
                                 getOptionLabel={(option) => option.label || ""}
-                                value={tempFilters.divergenceType?.code ? tempFilters.divergenceType : divergenceOptions.find(o => o.code === null)} // Handle null selection
-                                onChange={(event, newValue) => handleTempAutocompleteChange('divergenceType', newValue?.code === null ? null : newValue)} // Set null if 'Todos' selected
+                                value={tempFilters.divergenceType?.code ? tempFilters.divergenceType : divergenceOptions.find(o => o.code === null)} 
+                                onChange={(event, newValue) => handleTempAutocompleteChange('divergenceType', newValue?.code === null ? null : newValue)} 
                                 isOptionEqualToValue={(option, value) => option.code === value?.code}
                                 renderInput={(params) => <TextField {...params} label="Tipo de Divergência" size="small"/>} 
                             />
                         </MDBox>
                         
-                        {/* --- INÍCIO DA CORREÇÃO (Filtro Divergência) --- */}
                         <MDBox mt={2}>
                             <Autocomplete 
-                                options={['Sim', 'Não']} // Removido o 'null'
+                                options={['Sim', 'Não']} 
                                 value={tempFilters.divergencia} 
                                 onChange={(e, val) => handleTempAutocompleteChange('divergencia', val)} 
                                 renderInput={(params) => <TextField {...params} label="Possui Divergência?" size="small"/>} 
                             />
                         </MDBox>
-                        {/* --- FIM DA CORREÇÃO --- */}
                         
-                        {/* --- INÍCIO DA CORREÇÃO (Filtro Críticas) --- */}
                         <MDBox mt={2} mb={2}>
                             <Autocomplete 
-                                options={['Sim', 'Não']} // Removido o 'null'
+                                options={['Sim', 'Não']} 
                                 value={tempFilters.criticas} 
                                 onChange={(e, val) => handleTempAutocompleteChange('criticas', val)} 
                                 renderInput={(params) => <TextField {...params} label="Possui Críticas?" size="small"/>} 
                             />
                         </MDBox>
-                        {/* --- FIM DA CORREÇÃO --- */}
 
                         <Divider />
-                        {/* Filter Actions */}
                         <MDBox display="flex" justifyContent="space-between" mt={2}>
                             <MDButton variant="text" color="secondary" size="small" onClick={handleClearFilters}>Limpar</MDButton>
                             <MDButton variant="gradient" color="info" size="small" onClick={handleApplyFilters}>Aplicar</MDButton>
@@ -589,17 +536,14 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
                     </MDBox>
                 </Menu>
                 
-                {/* DataTable */}
                 <DataTable 
                     table={tableData} 
-                    // Use DataTable's search
-                    canSearch={true} // Enable built-in search
-                    // Use DataTable's pagination
+                    canSearch={true} 
                     showTotalEntries 
-                    entriesPerPage={{ defaultValue: 10, entries: [5, 10, 25, 50, 100] }} // Default & options
-                    isSorted={true} // Enable sorting
+                    entriesPerPage={{ defaultValue: 10, entries: [5, 10, 25, 50, 100] }} 
+                    isSorted={true} 
                     noEndBorder
-                    isLoading={isLoading} // Pass isLoading prop
+                    isLoading={isLoading} 
                 />
             </Card>
         </>
@@ -607,15 +551,13 @@ function LiveFeed({ data, isLoading }) { // Added isLoading prop
 }
 
 LiveFeed.propTypes = {
-    data: PropTypes.array.isRequired,
-    isLoading: PropTypes.bool, // Add prop type for isLoading
+    data: PropTypes.array, 
+    isLoading: PropTypes.bool, 
 };
 
-// --- INÍCIO DA MODIFICAÇÃO: Default prop for isLoading ---
 LiveFeed.defaultProps = {
-    isLoading: false, // Default isLoading to false
+    data: [], 
+    isLoading: false, 
 };
-// --- FIM DA MODIFICAÇÃO ---
-
 
 export default LiveFeed;

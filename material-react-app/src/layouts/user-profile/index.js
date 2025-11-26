@@ -1,5 +1,3 @@
-// CÓDIGO CORRIGIDO
-
 import { useState, useEffect, useRef } from "react";
 import Collapse from "@mui/material/Collapse";
 import MDBox from "components/MDBox";
@@ -23,6 +21,9 @@ const UserProfile = () => {
   const [user, setUser] = useState({
     name: "", email: "", role: "", profile_image: null, newPassword: "", confirmPassword: "",
   });
+
+  // --- CORREÇÃO: URL CORRETA PARA O AXIOS CRU ---
+  const API_URL = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     if (authUser?.data?.attributes) {
@@ -57,29 +58,24 @@ const UserProfile = () => {
     }
   };
 
-  // --- INÍCIO DA CORREÇÃO ---
   const submitHandler = async (e) => {
     e.preventDefault();
 
-    // 1. Monta o objeto de atributos base
     const attributes = { 
       name: user.name, 
       email: user.email, 
       profile_image: user.profile_image 
     };
 
-    // 2. Lógica de validação de senha
     if (user.newPassword) {
       if (user.newPassword.length < 8 || user.newPassword !== user.confirmPassword) {
         setNotification({ show: true, message: "As senhas devem ter no mínimo 8 caracteres e ser iguais.", color: "error" });
         return;
       }
-      // Adiciona os campos de senha que o backend espera
       attributes.newPassword = user.newPassword;
       attributes.confirmPassword = user.confirmPassword;
     }
 
-    // 3. Estrutura o payload da forma que o backend espera (JSON:API)
     const payload = {
       data: {
         attributes: attributes,
@@ -87,11 +83,12 @@ const UserProfile = () => {
     };
 
     try {
-      // 4. Chama o AuthService com UM argumento (o payload), como ele está definido
+      // Supõe-se que AuthService usa o http.service configurado corretamente
       await AuthService.updateProfile(payload); 
       
-      // Atualiza os dados do usuário no contexto
-      const updatedUserResponse = await axios.get("/me", {
+      // --- CORREÇÃO AQUI: Usar API_URL ---
+      // Antes estava "/me", o que falharia no Portainer retornando HTML
+      const updatedUserResponse = await axios.get(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -101,11 +98,11 @@ const UserProfile = () => {
       setUser((prev) => ({ ...prev, newPassword: "", confirmPassword: "" }));
 
     } catch (error) {
+      console.error("Erro ao atualizar perfil:", error);
       const errorMessage = error.response?.data?.message || "Erro ao atualizar o perfil.";
       setNotification({ show: true, message: errorMessage, color: "error" });
     }
   };
-  // --- FIM DA CORREÇÃO ---
 
   const handleAvatarClick = () => fileInputRef.current.click();
 

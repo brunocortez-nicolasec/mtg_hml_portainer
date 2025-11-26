@@ -23,13 +23,13 @@ export default function data(members) {
     { Header: "função", accessor: "role", align: "center" },
   ];
 
-  const rows = members.map(member => ({
+  // --- BLINDAGEM: (members || []) ---
+  // Garante que não quebra se a lista de membros vier vazia ou nula
+  const rows = (members || []).map(member => ({
     user: <Author image={member.profile_image} name={member.name} />,
     email: <MDTypography variant="caption">{member.email}</MDTypography>,
-    // --- INÍCIO DA CORREÇÃO ---
-    // Alterado de 'member.role' para 'member.profile'
+    // Tratamento de objeto aninhado
     role: <MDTypography variant="caption">{member.profile?.name || "N/A"}</MDTypography>,
-    // --- FIM DA CORREÇÃO ---
   }));
 
   return { columns, rows };

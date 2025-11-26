@@ -12,9 +12,9 @@ import DialogTitle from "@mui/material/DialogTitle";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import Grid from "@mui/material/Grid";
-import FormHelperText from "@mui/material/FormHelperText"; // Import for helper text
-import MDInput from "components/MDInput"; // Importar MDInput
-import { useMaterialUIController } from "context"; // Importar Context
+import FormHelperText from "@mui/material/FormHelperText"; 
+import MDInput from "components/MDInput"; 
+import { useMaterialUIController } from "context"; 
 
 // Material Dashboard 2 React components
 import MDBox from "components/MDBox";
@@ -28,7 +28,7 @@ import {
   logicalOperators,
 } from "./rbacConfig"; 
 
-// Estado inicial do modal (movido para cá para incluir 'system')
+// Estado inicial do modal
 const newInitialRbacState = {
   id: null,
   name: "",
@@ -36,70 +36,69 @@ const newInitialRbacState = {
   areaNegocio: "",
   processoNegocio: "",
   owner: "",
-  system: null, // Campo para o sistema selecionado
+  system: null, 
   conditionType: conditionTypes[0],
   logicalOperator: logicalOperators[0],
-  requiredProfile: null, // (Será 'requiredResource' no backend)
+  requiredProfile: null, 
   singleAttributeCondition: { attribute: null, operator: comparisonOperators[0], value: "" },
   attributeConditions: [{ attribute: null, operator: comparisonOperators[0], value: "" }],
-  grantedProfile: null, // (Será 'grantedResource' no backend)
+  grantedProfile: null, 
 };
 
 
 function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit, 
-  systems, // Lista de todos os sistemas
-// ======================= INÍCIO DA CORREÇÃO (Props) =======================
-  resources: allResources, // 1. Corrigido
-// ======================== FIM DA CORREÇÃO (Props) =========================
-  attributes: allAttributes // Lista de atributos da Identity
+  systems, 
+  resources: allResources, 
+  attributes: allAttributes 
 }) {
   
-  const [controller] = useMaterialUIController(); // Modo Escuro
-  const { darkMode } = controller; // Modo Escuro
+  const [controller] = useMaterialUIController(); 
+  const { darkMode } = controller; 
 
   const [currentRbacRule, setCurrentRbacRule] = useState(newInitialRbacState);
   const [isEditing, setIsEditing] = useState(false);
-  const [filteredResources, setFilteredResources] = useState([]); // Corrigido
+  const [filteredResources, setFilteredResources] = useState([]); 
 
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
+  const api = axios.create({
+    baseURL: API_URL,
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   useEffect(() => {
     if (open) {
       if (ruleToEdit) {
         setIsEditing(true);
 
-        const systemId = ruleToEdit.systemId; // Corrigido
+        const systemId = ruleToEdit.systemId; 
         const system = systems.find(s => s.id === systemId) || null;
         
-// ======================= INÍCIO DA CORREÇÃO (useEffect) =======================
-        // 2. Filtra 'allResources'
         const resourcesForThisSystem = system ? allResources.filter(r => r.systemId === system.id) : [];
         setFilteredResources(resourcesForThisSystem); 
 
         const type = conditionTypes.find((t) => t.id === ruleToEdit.conditionType) || conditionTypes[0];
-        // 3. Usa 'grantedResourceId'
         const granted = resourcesForThisSystem.find((p) => p.id === ruleToEdit.grantedResourceId);
-// ======================== FIM DA CORREÇÃO (useEffect) =========================
+
         const logicalOp = logicalOperators.find((lo) => lo.id === ruleToEdit.logicalOperator) || logicalOperators[0];
         let reqProfile = null;
         let singleAttrCond = { attribute: null, operator: comparisonOperators[0], value: "" };
         let multiAttrConds = [{ attribute: null, operator: comparisonOperators[0], value: "" }];
 
         if (type.id === "BY_PROFILE") {
-// ======================= INÍCIO DA CORREÇÃO (useEffect) =======================
-          // 4. Usa 'requiredResourceId'
           reqProfile = resourcesForThisSystem.find((p) => p.id === ruleToEdit.requiredResourceId);
-// ======================== FIM DA CORREÇÃO (useEffect) =========================
         } else if (type.id === "BY_SINGLE_ATTRIBUTE") {
-          singleAttrCond.attribute = allAttributes.find((a) => a.id === ruleToEdit.attributeName); // Corrigido
+          singleAttrCond.attribute = allAttributes.find((a) => a.id === ruleToEdit.attributeName); 
           singleAttrCond.operator =
-            comparisonOperators.find((op) => op.id === ruleToEdit.attributeOperator) || // Corrigido
+            comparisonOperators.find((op) => op.id === ruleToEdit.attributeOperator) || 
             comparisonOperators[0];
-          singleAttrCond.value = ruleToEdit.attributeValue || ""; // Corrigido
+          singleAttrCond.value = ruleToEdit.attributeValue || ""; 
         } else if (type.id === "BY_MULTIPLE_ATTRIBUTES" && Array.isArray(ruleToEdit.attributeConditions)) {
           multiAttrConds = ruleToEdit.attributeConditions.map((cond) => ({
-            attribute: allAttributes.find((a) => a.id === cond.attributeName) || null, // Corrigido
+            attribute: allAttributes.find((a) => a.id === cond.attributeName) || null, 
             operator: comparisonOperators.find((op) => op.id === cond.operator) || comparisonOperators[0],
-            value: cond.attributeValue || "", // Corrigido
+            value: cond.attributeValue || "", 
           }));
           if (multiAttrConds.length === 0)
             multiAttrConds = [{ attribute: null, operator: comparisonOperators[0], value: "" }];
@@ -123,25 +122,25 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
       } else {
         setIsEditing(false);
         setCurrentRbacRule(newInitialRbacState);
-        setFilteredResources([]); // Corrigido
+        setFilteredResources([]); 
       }
     }
-  }, [open, ruleToEdit, systems, allResources, allAttributes]); // Corrigido
+  }, [open, ruleToEdit, systems, allResources, allAttributes]); 
 
   const handleClose = () => {
     setCurrentRbacRule(newInitialRbacState);
-    setFilteredResources([]); // Corrigido
+    setFilteredResources([]); 
     onClose();
   };
 
-  // Handler unificado para campos de texto (TextField) e Autocomplete
+  // Handler unificado
   const handleFormChange = (e, fieldName = null, newValue = null) => {
     let nameToUpdate, valueToUpdate;
 
-    if (fieldName) { // Veio de um Autocomplete (onChange(event, newValue))
+    if (fieldName) { 
       nameToUpdate = fieldName;
       valueToUpdate = newValue;
-    } else { // Veio de um TextField (onChange(event))
+    } else { 
       nameToUpdate = e.target.name;
       valueToUpdate = e.target.value;
     }
@@ -151,17 +150,14 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
 
       if (nameToUpdate === 'system') {
           const newSystemId = valueToUpdate ? valueToUpdate.id : null;
-// ======================= INÍCIO DA CORREÇÃO (handleFormChange) =======================
-          // 5. Filtra 'allResources'
+
           const resourcesForThisSystem = newSystemId 
               ? allResources.filter(p => p.systemId === newSystemId) 
               : [];
-          setFilteredResources(resourcesForThisSystem); // Corrigido
-// ======================== FIM DA CORREÇÃO (handleFormChange) =========================
+          setFilteredResources(resourcesForThisSystem); 
           
           newState.grantedProfile = null;
           newState.requiredProfile = null;
-          // Reseta também o tipo de condição para forçar re-seleção
           newState.conditionType = conditionTypes[0]; 
           newState.singleAttributeCondition = { attribute: null, operator: comparisonOperators[0], value: "" };
           newState.attributeConditions = [{ attribute: null, operator: comparisonOperators[0], value: "" }];
@@ -221,9 +217,8 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
       name, description, areaNegocio, processoNegocio, owner,
       systemId: system.id,
       conditionType: conditionType.id,
-      grantedProfile: grantedProfile ? { id: grantedProfile.id } : null, // (O backend vai interpretar como Resource)
+      grantedProfile: grantedProfile ? { id: grantedProfile.id } : null, 
       requiredProfile: null,
-      // Renomeado para corresponder ao backend
       requiredAttribute: null, 
       requiredAttributeOperator: null,
       attributeValue: null,
@@ -235,7 +230,7 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
       switch (conditionType.id) {
         case "BY_PROFILE":
           if (!requiredProfile) throw new Error("Recurso Requerido é obrigatório.");
-          payload.requiredProfile = requiredProfile ? { id: requiredProfile.id } : null; // (O backend vai interpretar como Resource)
+          payload.requiredProfile = requiredProfile ? { id: requiredProfile.id } : null; 
           break;
         case "BY_SINGLE_ATTRIBUTE":
           if (!singleAttributeCondition.attribute || !singleAttributeCondition.operator || !singleAttributeCondition.value.trim())
@@ -261,10 +256,11 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
           throw new Error("Tipo de Condição inválido.");
       }
 
+      // --- CORREÇÃO: Usando a instância 'api' configurada ---
       if (isEditing) {
-        await axios.patch(`/rbac-rules/${id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.patch(`/rbac-rules/${id}`, payload);
       } else {
-        await axios.post("/rbac-rules", payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post("/rbac-rules", payload);
       }
       showSnackbar("success", "Sucesso", `Regra RBAC ${isEditing ? "atualizada" : "criada"}.`);
       handleClose();
@@ -346,7 +342,7 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
                 renderInput={(params) => <MDInput {...params} label="Sistema Alvo *" required variant="outlined" />}
               />
               {isEditing && (
-                 <FormHelperText>O sistema não pode ser alterado ao editar uma regra.</FormHelperText>
+                  <FormHelperText>O sistema não pode ser alterado ao editar uma regra.</FormHelperText>
               )}
             </Grid>
 
@@ -367,9 +363,7 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
             {/* Campos Dinâmicos */}
             <DynamicConditionFields
               conditionType={currentRbacRule.conditionType}
-// ======================= INÍCIO DA CORREÇÃO (Props) =======================
-              resources={filteredResources} // 6. Passa a prop correta 'filteredResources'
-// ======================== FIM DA CORREÇÃO (Props) =========================
+              resources={filteredResources} 
               attributes={allAttributes}
               values={currentRbacRule}
               onChange={handleFormChange} 
@@ -383,16 +377,14 @@ function RbacModal({ open, onClose, onRefresh, showSnackbar, token, ruleToEdit,
             {/* Campo Fixo de RESULTADO (Perfil Concedido) */}
             <Grid item xs={12}>
               <Autocomplete
-// ======================= INÍCIO DA CORREÇÃO (Props) =======================
-                options={filteredResources} // 7. Usa a prop correta 'filteredResources'
-                getOptionLabel={(option) => `${option.name_resource} (${option.system?.name_system || 'Global'})` || ""} // 8. Lê o nome do recurso
-// ======================== FIM DA CORREÇÃO (Props) =========================
+                options={filteredResources} 
+                getOptionLabel={(option) => `${option.name_resource} (${option.system?.name_system || 'Global'})` || ""} 
                 value={currentRbacRule.grantedProfile}
                 onChange={(event, newValue) => handleFormChange(event, "grantedProfile", newValue)}
                 isOptionEqualToValue={(option, value) => option?.id === value?.id}
                 disabled={!currentRbacRule.system}
                 ListboxProps={{ sx: { backgroundColor: darkMode ? "grey.800" : "white" } }}
-                renderInput={(params) => <MDInput {...params} label="Recurso Concedido *" required variant="outlined" />} // Label corrigido
+                renderInput={(params) => <MDInput {...params} label="Recurso Concedido *" required variant="outlined" />} 
               />
             </Grid>
           </Grid>
@@ -417,18 +409,14 @@ RbacModal.propTypes = {
   token: PropTypes.string,
   ruleToEdit: PropTypes.object,
   systems: PropTypes.arrayOf(PropTypes.object).isRequired,
-// ======================= INÍCIO DA CORREÇÃO (PropTypes) =======================
-  resources: PropTypes.arrayOf(PropTypes.object).isRequired, // 9. Corrigido
-// ======================== FIM DA CORREÇÃO (PropTypes) =========================
+  resources: PropTypes.arrayOf(PropTypes.object).isRequired, 
   attributes: PropTypes.arrayOf(PropTypes.object).isRequired, 
 };
 
-// ======================= INÍCIO DA CORREÇÃO (DefaultProps) =======================
 RbacModal.defaultProps = {
   token: null,
   ruleToEdit: null,
-  resources: [], // 10. Corrigido
+  resources: [], 
 };
-// ======================== FIM DA CORREÇÃO (DefaultProps) =========================
 
 export default RbacModal;

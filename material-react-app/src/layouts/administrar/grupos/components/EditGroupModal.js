@@ -26,8 +26,11 @@ function EditGroupModal({ open, onClose, onSave, group }) {
   const [loading, setLoading] = useState(false);
   const [userToAdd, setUserToAdd] = useState(null);
 
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL,
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
@@ -40,11 +43,13 @@ function EditGroupModal({ open, onClose, onSave, group }) {
           api.get("/users"),
           api.get(`/groups/${group.id}`),
         ]);
-        setAllUsers(usersResponse.data);
+        // Blindagem básica
+        setAllUsers(Array.isArray(usersResponse.data) ? usersResponse.data : []);
         setName(groupDetailsResponse.data.name);
         setMembers(groupDetailsResponse.data.users || []);
       } catch (error) {
         console.error("Erro ao buscar dados para o modal:", error);
+        setAllUsers([]);
       } finally {
         setLoading(false);
       }
@@ -60,7 +65,6 @@ function EditGroupModal({ open, onClose, onSave, group }) {
     setMembers((currentMembers) => currentMembers.filter((member) => member.id !== userIdToRemove));
   };
 
-  // --- FUNÇÃO DE SALVAR (COM DEBUG) ---
   const handleSave = () => {
     const userIds = members.map((member) => member.id);
     onSave(group.id, { name, userIds });
@@ -68,7 +72,7 @@ function EditGroupModal({ open, onClose, onSave, group }) {
   };
 
   const filteredMembers = members.filter((member) =>
-    member.name.toLowerCase().includes(searchText.toLowerCase())
+    member.name?.toLowerCase().includes(searchText.toLowerCase())
   );
 
   const tableData = useMemo(

@@ -1,3 +1,5 @@
+// material-react-app/src/layouts/observabilidade/sistemas/components/SystemProfilesModal.js
+
 import { useState, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
@@ -10,13 +12,14 @@ import DialogTitle from "@mui/material/DialogTitle";
 import CircularProgress from "@mui/material/CircularProgress";
 import DialogContentText from "@mui/material/DialogContentText";
 import Tooltip from "@mui/material/Tooltip";
-import Icon from "@mui/material/Icon"; // <<< Importação do Icon (estava faltando no seu)
+import Icon from "@mui/material/Icon"; 
 
 // Material Dashboard 2 React components
 import MDBox from "components/MDBox";
 import MDButton from "components/MDButton";
 import MDTypography from "components/MDTypography";
 import MDSnackbar from "components/MDSnackbar";
+import MDAlert from "components/MDAlert"; // <--- ADICIONADO (Estava faltando)
 import DataTable from "examples/Tables/DataTable";
 import MDBadge from "components/MDBadge";
 import MDAvatar from "components/MDAvatar"; 
@@ -38,7 +41,6 @@ function Author({ image, name }) {
 Author.propTypes = { image: PropTypes.string, name: PropTypes.string.isRequired };
 
 
-// Renomeada a prop 'system' para 'dataSource' para clareza
 function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
   const [dataList, setDataList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,8 +53,11 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
   const closeSnackbar = () => setSnackbar({ ...snackbar, open: false });
   const showSnackbar = (color, title, message) => setSnackbar({ open: true, color, title, message });
 
+  // --- CORREÇÃO AQUI: Força a URL correta em Produção ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL, // Agora aponta corretamente para /mind-the-gap/api
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
@@ -68,10 +73,8 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
     setError(null);
     setDataList([]);
 
-    // --- INÍCIO DA CORREÇÃO ---
-    // Corrigido o endpoint de /imports/data... para /systems/:id/data
+    // A rota já está correta (/systems/:id/data), agora com a baseURL certa vai funcionar
     let url = `/systems/${dataSource.id}/data`; 
-    // --- FIM DA CORREÇÃO ---
 
     try {
       const response = await api.get(url, { signal });
@@ -110,8 +113,6 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
     setIsClearing(true);
     handleCloseConfirm();
 
-    // --- INÍCIO DA CORREÇÃO ---
-    // Corrigido o endpoint de /imports/data... para /systems/:id/data
     try {
       await api.delete(`/systems/${dataSource.id}/data`);
 
@@ -128,7 +129,6 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
     } finally {
         setIsClearing(false);
     }
-    // --- FIM DA CORREÇÃO ---
   };
 
   const origem = dataSource?.origem_datasource;
@@ -211,7 +211,7 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
             </MDBox>
           )}
           {!loading && error && (
-            <MDBox p={3}> {/* Adicionado padding ao redor do alerta de erro */}
+            <MDBox p={3}> 
               <MDAlert color="error">
                 <MDTypography variant="body2" color="white">
                   Erro: {error}
@@ -238,7 +238,7 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
               <MDButton
                 onClick={handleOpenConfirm}
                 color="error"
-                variant="gradient" // <<< Adicionado variant
+                variant="gradient" 
                 disabled={loading || isClearing || dataList.length === 0}
               >
                 {isClearing ? "Limpando..." : "Limpar Dados"}
@@ -290,8 +290,8 @@ function SystemProfilesModal({ open, onClose, dataSource, onDataClear }) {
 SystemProfilesModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  dataSource: PropTypes.object, // Corrigido de 'system'
-  onDataClear: PropTypes.func, // Nova prop para recarregar o "pai"
+  dataSource: PropTypes.object,
+  onDataClear: PropTypes.func, 
 };
 
 SystemProfilesModal.defaultProps = {

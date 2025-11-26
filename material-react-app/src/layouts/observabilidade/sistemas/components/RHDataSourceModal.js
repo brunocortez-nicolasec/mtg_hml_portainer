@@ -66,8 +66,10 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
   const [testStatus, setTestStatus] = useState({ show: false, color: "info", message: "" });
   const [isTesting, setIsTesting] = useState(false);
   
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL, // <--- URL CORRETA AGORA
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   
@@ -130,6 +132,7 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
     setTestStatus({ show: true, color: "info", message: "Testando leitura do arquivo CSV..." });
 
     try {
+      // Nota: Com a baseURL ajustada, isso agora chama /mind-the-gap/api/datasources/test-csv
       const response = await api.post("/datasources/test-csv", { diretorio: formData.diretorio_hr });
       setTestStatus({ 
         show: true, 
@@ -179,15 +182,12 @@ function RHDataSourceModal({ open, onClose, onSave, initialData }) {
             table: formData.db_table
         });
         
-        // ======================= INÍCIO DA ALTERAÇÃO =======================
-        // Mostra as colunas encontradas no alerta de sucesso
         let successMsg = response.data.message;
         if (response.data.columns && response.data.columns.length > 0) {
              const colList = response.data.columns.slice(0, 5).join(", "); // Mostra as primeiras 5
              const extra = response.data.columns.length > 5 ? `... (+${response.data.columns.length - 5})` : "";
              successMsg += ` Colunas: [${colList}${extra}]`;
         }
-        // ======================== FIM DA ALTERAÇÃO =========================
         
         setTestStatus({ 
             show: true, 

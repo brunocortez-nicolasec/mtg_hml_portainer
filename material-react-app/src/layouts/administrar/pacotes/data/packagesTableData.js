@@ -23,7 +23,8 @@ export default function data(packages, handleEdit, handleDelete) {
     { Header: "ação", accessor: "action", align: "center" },
   ];
 
-  const rows = packages.map(pkg => ({
+  // --- BLINDAGEM 1: Array principal (packages) ---
+  const rows = (packages || []).map(pkg => ({
     name: (
       <MDTypography variant="button" color="text" fontWeight="medium">
         {pkg.name}
@@ -31,15 +32,16 @@ export default function data(packages, handleEdit, handleDelete) {
     ),
     platforms: (
       <MDBox sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {pkg.platforms.map(platform => (
-          // --- MUDANÇA AQUI ---
+        {/* --- BLINDAGEM 2: Array aninhado (platforms) --- */}
+        {(pkg.platforms || []).map(platform => (
           <Chip key={platform.id} label={platform.name} size="small" color="info" />
         ))}
       </MDBox>
     ),
     users: (
       <MDTypography variant="caption">
-        {pkg._count.users}
+        {/* --- BLINDAGEM 3: Objeto aninhado (_count) --- */}
+        {pkg._count?.users || 0}
       </MDTypography>
     ),
     action: <Action onEdit={() => handleEdit(pkg)} onDelete={() => handleDelete(pkg.id)} />,

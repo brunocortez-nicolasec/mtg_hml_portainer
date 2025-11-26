@@ -8,6 +8,9 @@ import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 
 function RiskAnalysisWidgets({ title, items, defaultColor = "dark", onItemClick }) {
+  // --- BLINDAGEM: Garante que é sempre um array ---
+  const safeItems = Array.isArray(items) ? items : [];
+
   return (
     <Card sx={{ height: "100%" }}>
       <MDBox pt={2} px={2} textAlign="center">
@@ -16,7 +19,7 @@ function RiskAnalysisWidgets({ title, items, defaultColor = "dark", onItemClick 
         </MDTypography>
       </MDBox>
       <MDBox p={2} pt={0}>
-        {items.map((item) => (
+        {safeItems.map((item) => (
           <MDBox
             key={item.label}
             mt={2.5}
@@ -53,7 +56,7 @@ RiskAnalysisWidgets.propTypes = {
     value: PropTypes.number.isRequired,
     color: PropTypes.string,
     code: PropTypes.string,
-  })).isRequired,
+  })), // Removido isRequired para flexibilidade
   defaultColor: PropTypes.string,
   onItemClick: PropTypes.func,
 };
@@ -61,6 +64,7 @@ RiskAnalysisWidgets.propTypes = {
 RiskAnalysisWidgets.defaultProps = {
   defaultColor: "dark",
   onItemClick: () => {},
+  items: [], // Default seguro
 };
 
 export default RiskAnalysisWidgets;

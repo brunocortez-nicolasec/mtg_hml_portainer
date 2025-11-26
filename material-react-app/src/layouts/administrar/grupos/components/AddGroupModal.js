@@ -17,17 +17,23 @@ function AddGroupModal({ open, onClose, onSave }) {
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
 
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const api = axios.create({
-          baseURL: "/",
+          baseURL: API_URL,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         const response = await api.get("/users");
-        setAllUsers(response.data);
+        const data = response.data;
+        // Blindagem de Array
+        setAllUsers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Erro ao buscar usuários para o modal:", error);
+        setAllUsers([]);
       }
     };
 
@@ -69,7 +75,6 @@ function AddGroupModal({ open, onClose, onSave }) {
                 setSelectedUsers(newValue);
               }}
               renderInput={(params) => (
-                // --- MUDANÇA AQUI: A propriedade 'variant="standard"' foi removida ---
                 <MDInput {...params} label="Membros do Grupo" />
               )}
             />

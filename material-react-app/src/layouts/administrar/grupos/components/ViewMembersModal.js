@@ -14,14 +14,15 @@ import MDBox from "components/MDBox";
 import DataTable from "examples/Tables/DataTable";
 import MDTypography from "components/MDTypography";
 
-// --- MUDANÇA AQUI: Corrigindo o caminho da importação ---
 import membersTableData from "../data/membersTableData.js";
-
 
 function ViewMembersModal({ open, onClose, group }) {
   const [members, setMembers] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // --- CORREÇÃO: URL CORRETA ---
+  const API_URL = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -30,10 +31,11 @@ function ViewMembersModal({ open, onClose, group }) {
       setLoading(true);
       try {
         const api = axios.create({
-          baseURL: "/",
+          baseURL: API_URL,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         const response = await api.get(`/groups/${group.id}`);
+        // Blindagem de Array
         setMembers(response.data.users || []);
       } catch (error) {
         console.error("Erro ao buscar membros do grupo:", error);
@@ -49,8 +51,9 @@ function ViewMembersModal({ open, onClose, group }) {
     }
   }, [open, group]);
   
-  const filteredMembers = members.filter(member =>
-    member.name.toLowerCase().includes(searchText.toLowerCase())
+  // Safe filter
+  const filteredMembers = (members || []).filter(member =>
+    member.name?.toLowerCase().includes(searchText.toLowerCase())
   );
   
   const { columns, rows } = membersTableData(filteredMembers);

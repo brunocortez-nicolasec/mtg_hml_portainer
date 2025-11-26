@@ -16,9 +16,8 @@ import MDButton from "components/MDButton";
 import BasicLayoutLanding from "layouts/authentication/components/BasicLayoutLanding";
 import bgImage from "assets/images/bg-sign-in-basic.jpeg";
 import AuthService from "services/auth-service";
-import axios from "axios"; // 1. Adicionado axios
+import axios from "axios"; 
 
-// 2. Imports do contexto corrigidos para usar 'setAuth'
 import { useMaterialUIController, setAuth } from "context";
 
 function Login() {
@@ -28,8 +27,8 @@ function Login() {
   const [credentialsErros, setCredentialsError] = useState(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [inputs, setInputs] = useState({
-    email: "admin@jsonapi.com",
-    password: "secret1234",
+    email: "",
+    password: "",
   });
   const [errors, setErrors] = useState({
     emailError: false,
@@ -61,23 +60,26 @@ function Login() {
     };
 
     try {
-      // 3. Lógica de login corrigida
       const loginResponse = await AuthService.login(credentials);
       const token = loginResponse.token;
 
-      // Busca os dados do usuário imediatamente após obter o token
-      const userResponse = await axios.get("/me", {
+      // --- CORREÇÃO AQUI: Força a URL correta usando a variável de ambiente ---
+      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
+      
+      // Concatena a URL base com o endpoint /me para garantir que bata no Backend
+      const userResponse = await axios.get(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
       const user = userResponse.data;
       
-      // Salva o token e os dados do usuário no contexto global
       setAuth(dispatch, { token, user });
 
       navigate("/mind-the-gap");
 
     } catch (error) {
-      const message = error.response?.data?.message || "Ocorreu um erro. Tente novamente.";
+      console.error("Erro no Login:", error); // Log para debug
+      const message = error.response?.data?.message || "Ocorreu um erro ao buscar dados do usuário.";
       setCredentialsError(message);
     }
   };

@@ -34,20 +34,18 @@ export default function data(users, handleEdit, handleDelete) {
     { Header: "usuário", accessor: "user", width: "30%", align: "left" },
     { Header: "email", accessor: "email", align: "left" },
     { Header: "função", accessor: "role", align: "center" },
-    // --- 1. NOVA COLUNA ADICIONADA ---
     { Header: "pacote", accessor: "package", align: "center" },
     { Header: "criado em", accessor: "created", align: "center" },
     { Header: "ação", accessor: "action", align: "center" },
   ];
 
-  const rows = users.map(user => ({
+  // --- BLINDAGEM: (users || []) ---
+  // Garante que mesmo se users for nulo aqui, o map não quebra
+  const rows = (users || []).map(user => ({
     user: <Author image={user.profile_image} name={user.name} />,
     email: <MDTypography variant="caption">{user.email}</MDTypography>,
-    // --- INÍCIO DA CORREÇÃO ---
-    // O backend agora envia o objeto 'profile' em vez de 'role'
+    // Tratamento para objeto aninhado (Prisma)
     role: <MDTypography variant="caption">{user.profile?.name || "Sem função"}</MDTypography>,
-    // --- FIM DA CORREÇÃO ---
-    // --- 2. NOVA PROPRIEDADE PARA EXIBIR O PACOTE ---
     package: (
       <MDTypography variant="caption" color="text" fontWeight="medium">
         {user.package?.name || "Nenhum"}
@@ -55,7 +53,7 @@ export default function data(users, handleEdit, handleDelete) {
     ),
     created: (
       <MDTypography variant="caption">
-        {new Date(user.createdAt).toLocaleDateString()}
+        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
       </MDTypography>
     ),
     action: <Action onEdit={() => handleEdit(user)} onDelete={() => handleDelete(user.id)} />,

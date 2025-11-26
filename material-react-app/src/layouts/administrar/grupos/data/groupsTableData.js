@@ -16,7 +16,6 @@ function Action({ onEdit, onDelete }) {
   );
 }
 
-// --- MUDANÇA: Adiciona o handler 'onNameClick' ---
 export default function data(groups, onNameClick, handleEdit, handleDelete) {
   const columns = [
     { Header: "nome do grupo", accessor: "name", width: "50%", align: "left" },
@@ -25,15 +24,16 @@ export default function data(groups, onNameClick, handleEdit, handleDelete) {
     { Header: "ação", accessor: "action", align: "center" },
   ];
 
-  const rows = groups.map(group => ({
+  // --- BLINDAGEM 1: Array principal (groups) ---
+  // Garante que não quebra se groups vier nulo/undefined
+  const rows = (groups || []).map(group => ({
     name: (
-      // --- MUDANÇA: O nome agora é clicável ---
       <MDTypography
         onClick={() => onNameClick(group)}
         component="a"
         href="#"
         variant="button"
-        color="info" // Cor de link
+        color="info" 
         fontWeight="medium"
         sx={{ cursor: "pointer" }}
       >
@@ -42,7 +42,8 @@ export default function data(groups, onNameClick, handleEdit, handleDelete) {
     ),
     members: (
       <MDTypography variant="caption">
-        {group._count.users}
+        {/* --- BLINDAGEM 2: Objeto aninhado (_count) --- */}
+        {group._count?.users || 0}
       </MDTypography>
     ),
     created: (

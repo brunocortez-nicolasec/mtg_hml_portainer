@@ -25,7 +25,9 @@ export default function data(roles, handleEdit, handleDelete) {
     { Header: "ação", accessor: "action", align: "center" },
   ];
 
-  const rows = roles.map(role => ({
+  // --- BLINDAGEM: (roles || []) ---
+  // Garante que o map não quebra se roles for nulo
+  const rows = (roles || []).map(role => ({
     name: (
       <MDTypography component="a" href="#" variant="button" color="text" fontWeight="medium">
         {role.name}

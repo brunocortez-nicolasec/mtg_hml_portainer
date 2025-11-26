@@ -1,6 +1,5 @@
 // material-react-app/src/layouts/observabilidade/geral/components/Painel.js
 
-// --- 1. ADICIONAR IMPORTS NECESSÁRIOS ---
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useMaterialUIController } from "context";
@@ -68,36 +67,37 @@ function MiniMetricCard({ title, count, color = "dark" }) {
 function Painel({ imDisplay, onPieChartClick, onPlatformChange, selectedPlatform }) {
   const navigate = useNavigate();
 
-  // --- 2. ACESSAR TOKEN, REMOVER LISTA FIXA E ADICIONAR ESTADO DINÂMICO ---
   const [controller] = useMaterialUIController();
   const { token } = controller;
-  const [systemOptions, setSystemOptions] = useState(["Geral"]); // Inicia com "Geral"
+  const [systemOptions, setSystemOptions] = useState(["Geral"]); 
 
-  // --- 3. ADICIONAR FUNÇÃO E useEffect PARA BUSCAR SISTEMAS DA API ---
+  const API_URL = process.env.REACT_APP_API_URL;
+
+  const api = axios.create({
+    baseURL: API_URL,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
   useEffect(() => {
     const fetchSystems = async () => {
       if (!token) return;
       try {
-        const response = await axios.get('/systems', {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
+        const response = await api.get('/systems');
+        const data = response.data;
         
-        // A API /systems retorna DataSources. Precisamos extrair os *nomes dos sistemas*
-        // e garantir que sejam únicos, pois podem haver múltiplas fontes para um sistema.
+        // Blindagem de Array
+        const safeData = Array.isArray(data) ? data : [];
+        
         const systemNames = new Set(
-          response.data
+          safeData
             .filter(ds => ds.origem_datasource === 'SISTEMA' && ds.systemConfig?.system?.name_system)
             .map(ds => ds.systemConfig.system.name_system)
         );
         
-// ======================= INÍCIO DA ALTERAÇÃO (Remoção do RH) =======================
-        // Adiciona "Geral" (que é a visão de todos os sistemas)
         setSystemOptions(["Geral", ...systemNames]);
-// ======================== FIM DA ALTERAÇÃO (Remoção do RH) =========================
 
       } catch (error) {
         console.error("Erro ao buscar a lista de sistemas:", error);
-        // Mantém pelo menos a opção "Geral" em caso de erro
         setSystemOptions(["Geral"]);
       }
     };
@@ -108,7 +108,6 @@ function Painel({ imDisplay, onPieChartClick, onPlatformChange, selectedPlatform
 
   const titleText = selectedPlatform === "Geral" ? "Painel Geral" : `Painel de ${selectedPlatform}`;
   
-  // Cria um rótulo dinâmico para o card
   const appLabel = selectedPlatform === "Geral" ? "App" : selectedPlatform;
 
   const handleSystemSelect = (event, newValue) => {
@@ -129,7 +128,6 @@ function Painel({ imDisplay, onPieChartClick, onPlatformChange, selectedPlatform
           <MDTypography variant="h6">{titleText}</MDTypography>
         </MDBox>
         <MDBox sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          {/* --- 4. ATUALIZAR O AUTOCOMPLETE PARA USAR AS OPÇÕES DINÂMICAS --- */}
           <Autocomplete
             disableClearable
             options={systemOptions}
@@ -137,7 +135,6 @@ function Painel({ imDisplay, onPieChartClick, onPlatformChange, selectedPlatform
             onChange={handleSystemSelect}
             size="small"
             sx={{ width: 180 }}
-            // Adicione estas duas props para tratar 'options' como strings:
             getOptionLabel={(option) => option || ""} 
             isOptionEqualToValue={(option, value) => option === value}
             renderInput={(params) => <TextField {...params} label="Sistemas" />}
@@ -204,7 +201,6 @@ Painel.propTypes = {
   selectedPlatform: PropTypes.string.isRequired,
 };
 
-// --- Adicionando PropTypes para os sub-componentes ---
 PillKpi.propTypes = {
   label: PropTypes.string.isRequired,
   count: PropTypes.number.isRequired,
@@ -225,6 +221,5 @@ MiniMetricCard.propTypes = {
   count: PropTypes.number.isRequired,
   color: PropTypes.string,
 };
-// --- Fim da Adição de PropTypes ---
 
 export default Painel;

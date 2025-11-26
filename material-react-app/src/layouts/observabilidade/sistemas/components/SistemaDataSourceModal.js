@@ -17,6 +17,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
 import Divider from "@mui/material/Divider";
+import CircularProgress from "@mui/material/CircularProgress"; // Adicionado para feedback visual no botão salvar
 
 // Material Dashboard 2 React components
 import MDBox from "components/MDBox";
@@ -31,7 +32,7 @@ const databaseTypeOptions = ["postgres", "mysql", "oracle", "sqlserver"];
 function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
   
   const [step, setStep] = useState(1); 
-  const [isCreatingSystem, setIsCreatingSystem] = useState(false);
+  const [isCreatingSystem, setIsCreatingSystem] = useState(false); // Agora usado no handleSave
   
   const defaultState = {
     name: "",
@@ -70,12 +71,17 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
     isTestingContas: false,
     testStatusRecursos: { show: false, color: "info", message: "" },
     isTestingRecursos: false,
+    
+    saveError: null, // Novo estado para erro no salvamento
   };
 
   const [formData, setFormData] = useState(defaultState);
   
+  // URL Base Correta
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const api = axios.create({
-    baseURL: "/",
+    baseURL: API_URL, 
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   
@@ -108,8 +114,6 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
             db_url: config.db_url || "",
             db_schema: config.db_schema || "public",
             
-            // Em edição, não forçamos teste inicial (assumimos que já foi testado), 
-            // mas se o usuário mudar algo, o teste será exigido.
             testStatusContas: { show: false, color: "success" }, 
             testStatusRecursos: { show: false, color: "success" }, 
         });
@@ -121,11 +125,7 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
     }
   }, [initialData, open]);
 
-  // ======================= INÍCIO DA ALTERAÇÃO (Reset de Status) =======================
-  // Reseta status de teste SE qualquer campo de conexão mudar
-  // Isso obriga o usuário a testar novamente se ele alterar o host, senha, ou nome da tabela/arquivo.
-  
-  // 1. Reset Global de DB (afeta ambos se estiverem usando DB)
+  // Resets de Status (Mantidos)
   useEffect(() => {
     setFormData(prev => ({
        ...prev,
@@ -138,16 +138,13 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
     formData.db_url, formData.db_schema, formData.db_type
   ]);
 
-  // 2. Reset Específico de Contas
   useEffect(() => {
      setFormData(prev => ({ ...prev, testStatusContas: { show: false, color: "info", message: "" } }));
   }, [formData.tipo_fonte_contas, formData.diretorio_contas]);
 
-  // 3. Reset Específico de Recursos
   useEffect(() => {
      setFormData(prev => ({ ...prev, testStatusRecursos: { show: false, color: "info", message: "" } }));
   }, [formData.tipo_fonte_recursos, formData.diretorio_recursos]);
-  // ======================== FIM DA ALTERAÇÃO =========================
 
 
   const handleInputChange = (e) => {
@@ -159,30 +156,14 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
     setFormData((prev) => ({ ...prev, [name]: newValue }));
   };
   
-  const handleNextStep = async () => {
+  // --- LÓGICA CORRIGIDA DO NEXT STEP ---
+  const handleNextStep = () => {
+    // Apenas validação visual e transição de tela. Nenhuma chamada de API.
     if (!formData.name) return;
-    if (formData.systemId !== null) {
-      setStep(2);
-      return;
-    }
-    setIsCreatingSystem(true);
-    try {
-      const response = await api.post("/systems-catalog", {
-        name_system: formData.name,
-        description_system: formData.description
-      });
-      const newSystemId = response.data.id;
-      setFormData(prev => ({ ...prev, systemId: newSystemId }));
-      setStep(2); 
-    } catch (error) {
-      const message = error.response?.data?.message || "Erro ao criar o sistema no catálogo.";
-      setFormData(prev => ({ ...prev, testStatusContas: { show: true, color: "error", message } }));
-    } finally {
-      setIsCreatingSystem(false);
-    }
+    setStep(2);
   };
 
-  // --- Lógica de Teste ---
+  // --- Lógica de Teste (Mantida e Blindada com API_URL) ---
   const handleTestCSV = async (diretorio, setTesting, setStatusState) => {
     if (!diretorio) {
         setFormData(prev => ({ ...prev, [setStatusState]: { show: true, color: "warning", message: "Insira o diretório para testar." } }));
@@ -272,29 +253,78 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
     }
   };
 
-  // ======================= INÍCIO DA ALTERAÇÃO (Validação do Botão Salvar) =======================
   const getSaveDisabled = () => {
-      // 1. Bloqueia se estiver rodando um teste
+      if (isCreatingSystem) return true; // Bloqueia enquanto salva
       if (formData.isTestingContas || formData.isTestingRecursos) return true;
       
-      // 2. Validação de Contas: Se não for API (que não tem teste ainda), EXIGE sucesso
       if (formData.tipo_fonte_contas !== 'API') {
           if (formData.testStatusContas.color !== 'success') return true;
       }
 
-      // 3. Validação de Recursos: Se não for API, EXIGE sucesso
       if (formData.tipo_fonte_recursos !== 'API') {
            if (formData.testStatusRecursos.color !== 'success') return true;
       }
 
       return false;
   };
-  // ======================== FIM DA ALTERAÇÃO =========================
   
-  const handleSave = () => {
-    onSave(formData); 
+  // --- LÓGICA CORRIGIDA DO SAVE ---
+  const handleSave = async () => {
+    setFormData(prev => ({ ...prev, saveError: null }));
+    setIsCreatingSystem(true);
+
+    try {
+        let finalSystemId = formData.systemId;
+
+        // SE não tem ID e não é edição (initialData), precisamos criar o sistema no Catálogo PRIMEIRO
+        if (!finalSystemId && !initialData) {
+            const response = await api.post("/systems-catalog", {
+                name_system: formData.name,
+                description_system: formData.description
+            });
+            finalSystemId = response.data.id;
+        }
+
+        // Agora montamos o payload com o ID garantido
+        const payload = {
+            name: formData.name,
+            origem: "SISTEMA",
+            description: formData.description,
+            systemId: finalSystemId, // ID vital
+            
+            tipo_fonte_contas: formData.tipo_fonte_contas,
+            diretorio_contas: formData.diretorio_contas,
+            
+            tipo_fonte_recursos: formData.tipo_fonte_recursos,
+            diretorio_recursos: formData.diretorio_recursos,
+
+            // DB Shared Config
+            db_connection_type: formData.db_connection_type,
+            db_host: formData.db_host,
+            db_port: formData.db_port,
+            db_name: formData.db_name,
+            db_user: formData.db_user,
+            db_password: formData.db_password,
+            db_type: formData.db_type,
+            db_url: formData.db_url,
+            db_schema: formData.db_schema,
+        };
+
+        // Chama a função do pai para salvar a Configuração da Fonte de Dados
+        await onSave(payload); 
+        
+        // O fechamento do modal é controlado pelo pai após sucesso do onSave
+
+    } catch (error) {
+        console.error("Erro no fluxo de salvamento:", error);
+        const message = error.response?.data?.message || "Erro ao criar sistema ou salvar configurações.";
+        setFormData(prev => ({ ...prev, saveError: message }));
+    } finally {
+        setIsCreatingSystem(false);
+    }
   };
   
+  // --- RENDERIZAÇÃO ---
   const renderDbFields = () => (
     <>
         <Grid item xs={12}>
@@ -378,11 +408,14 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
                     <MDInput label="Descrição (Opcional)" name="description" value={formData.description} onChange={handleInputChange} fullWidth multiline rows={3} />
                 </Grid>
             </Grid>
-            <Collapse in={formData.testStatusContas.show && formData.testStatusContas.color === 'error'}>
+            
+            {/* Exibe erro caso tenha falhado ao tentar criar no passo anterior (embora agora não criamos mais) */}
+            <Collapse in={!!formData.saveError}>
                 <MDAlert color="error" sx={{ mt: 2, mb: 0 }}>
-                    <MDTypography variant="caption" color="white">{formData.testStatusContas.message}</MDTypography>
+                    <MDTypography variant="caption" color="white">{formData.saveError}</MDTypography>
                 </MDAlert>
             </Collapse>
+
             <MDBox mt={4} display="flex" justifyContent="flex-end">
                 <MDButton variant="gradient" color="secondary" onClick={onClose} sx={{ mr: 2 }}>Cancelar</MDButton>
                 <MDButton variant="gradient" color="info" onClick={handleNextStep} disabled={!formData.name}>
@@ -411,7 +444,6 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
                     {formData.tipo_fonte_contas === "CSV" && (
                         <MDInput label="Diretório de Contas" name="diretorio_contas" value={formData.diretorio_contas} onChange={handleInputChange} fullWidth sx={{ mt: 2 }} placeholder="/app/files/system_accounts.csv" />
                     )}
-                     {/* Em modo DB, a tabela é pedida aqui */}
                      {formData.tipo_fonte_contas === "DATABASE" && (
                         <MDInput label="Tabela de Contas" name="diretorio_contas" value={formData.diretorio_contas} onChange={handleInputChange} fullWidth sx={{ mt: 2 }} placeholder="Ex: tb_servicenow_contas" />
                     )}
@@ -430,7 +462,6 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
                     {formData.tipo_fonte_recursos === "CSV" && (
                         <MDInput label="Diretório de Recursos" name="diretorio_recursos" value={formData.diretorio_recursos} onChange={handleInputChange} fullWidth sx={{ mt: 2 }} placeholder="/app/files/system_resources.csv" />
                     )}
-                    {/* Em modo DB, a tabela é pedida aqui */}
                     {formData.tipo_fonte_recursos === "DATABASE" && (
                         <MDInput label="Tabela de Recursos" name="diretorio_recursos" value={formData.diretorio_recursos} onChange={handleInputChange} fullWidth sx={{ mt: 2 }} placeholder="Ex: tb_servicenow_recursos" />
                     )}
@@ -450,16 +481,23 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
                     <MDTypography variant="caption" color="white">[RECURSOS] {formData.testStatusRecursos.message}</MDTypography>
                 </MDAlert>
             </Collapse>
+
+            {/* Erro geral de salvamento */}
+            <Collapse in={!!formData.saveError}>
+                <MDAlert color="error" sx={{ mt: 2, mb: 0 }}>
+                    <MDTypography variant="caption" color="white">Erro ao Salvar: {formData.saveError}</MDTypography>
+                </MDAlert>
+            </Collapse>
             
             <MDBox mt={4} display="flex" justifyContent="space-between" alignItems="center">
                 {!initialData && (
-                    <MDButton variant="gradient" color="secondary" onClick={() => setStep(1)}>Voltar</MDButton>
+                    <MDButton variant="gradient" color="secondary" onClick={() => setStep(1)} disabled={isCreatingSystem}>Voltar</MDButton>
                 )}
                 <MDBox ml="auto" display="flex" alignItems="center">
                     {/* Botões de Teste */}
                     {formData.tipo_fonte_contas !== 'API' && (
                         <Tooltip title={`Testar ${formData.tipo_fonte_contas === 'DATABASE' ? 'Conexão DB e Tabela' : 'Arquivo CSV'}`}>
-                            <MDButton variant="gradient" color="success" onClick={handleTestContas} disabled={formData.isTestingContas} sx={{ mr: 1 }}>
+                            <MDButton variant="gradient" color="success" onClick={handleTestContas} disabled={formData.isTestingContas || isCreatingSystem} sx={{ mr: 1 }}>
                                 {formData.isTestingContas ? "..." : "Testar Contas"}
                             </MDButton>
                         </Tooltip>
@@ -467,14 +505,14 @@ function SistemaDataSourceModal({ open, onClose, onSave, initialData }) {
                     
                     {formData.tipo_fonte_recursos !== 'API' && (
                         <Tooltip title={`Testar ${formData.tipo_fonte_recursos === 'DATABASE' ? 'Conexão DB e Tabela' : 'Arquivo CSV'}`}>
-                            <MDButton variant="gradient" color="success" onClick={handleTestRecursos} disabled={formData.isTestingRecursos} sx={{ mr: 2 }}>
+                            <MDButton variant="gradient" color="success" onClick={handleTestRecursos} disabled={formData.isTestingRecursos || isCreatingSystem} sx={{ mr: 2 }}>
                                 {formData.isTestingRecursos ? "..." : "Testar Recursos"}
                             </MDButton>
                         </Tooltip>
                     )}
 
                     <MDButton variant="gradient" color="info" onClick={handleSave} disabled={getSaveDisabled()}>
-                        Salvar
+                        {isCreatingSystem ? <CircularProgress size={20} color="inherit" /> : "Salvar"}
                     </MDButton>
                 </MDBox>
             </MDBox>
