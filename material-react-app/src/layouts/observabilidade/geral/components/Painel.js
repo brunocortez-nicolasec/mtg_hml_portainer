@@ -141,7 +141,7 @@ function Painel({ imDisplay, onPieChartClick, onPlatformChange, selectedPlatform
           />
           <MDButton variant="outlined" color="info" size="small" onClick={handleRedirectToImportPage}>
             <Icon sx={{ mr: 0.5 }}>upload</Icon>
-            Importar CSV
+            Importar Dados
           </MDButton>
         </MDBox>
       </MDBox>

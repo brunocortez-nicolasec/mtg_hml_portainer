@@ -1,5 +1,3 @@
-// material-react-app/src/App.js
-
 import { useState, useEffect, useMemo } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
@@ -14,27 +12,128 @@ import rtlPlugin from "stylis-plugin-rtl";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import routes from "routes";
-import { useMaterialUIController, setMiniSidenav, setOpenConfigurator, logout } from "context";
+import { useMaterialUIController, setMiniSidenav, setOpenConfigurator, logout, setAuth } from "context";
 import { DashboardProvider } from "context/DashboardContext";
+import axios from "axios"; 
 
-// --- IMAGENS ORIGINAIS RESTAURADAS ---
+// --- KEYCLOAK IMPORTS ---
+import { ReactKeycloakProvider, useKeycloak } from "@react-keycloak/web";
+import keycloak from "./keycloak";
+// ------------------------
+
+// --- UI IMPORTS ---
+import CircularProgress from "@mui/material/CircularProgress";
+import Box from "@mui/material/Box";
 import brandWhite from "assets/images/mtg_icon_branco.png"; 
 import brandDark from "assets/images/mtg_icon_azul.png"; 
-// -------------------------------------
+// ------------------
 
 import { setupAxiosInterceptors } from "./services/interceptor";
 import ProtectedRoute from "examples/ProtectedRoute";
-import ForgotPassword from "auth/forgot-password";
-import ResetPassword from "auth/reset-password";
-import Login from "auth/login";
-import Register from "auth/register";
 import UserProfile from "layouts/user-profile";
 import UserManagement from "layouts/user-management";
-
-// Componentes Adicionais
 import MapeamentoDados from "layouts/observabilidade/mapeamentoDados";
 import ForcePasswordChange from "components/ForcePasswordChange";
 
+// --- COMPONENTE 1: Sincronizador de Lógica (CORRIGIDO) ---
+const KeycloakLogicSync = () => {
+  const { keycloak, initialized } = useKeycloak();
+  const [controller, dispatch] = useMaterialUIController();
+
+  useEffect(() => {
+    // Só roda se o Keycloak estiver pronto e autenticado
+    if (initialized && keycloak.authenticated) {
+        
+        // 1. Garante o Header Global do Axios
+        axios.defaults.headers.common['Authorization'] = `Bearer ${keycloak.token}`;
+
+        // 2. Verifica se precisamos sincronizar
+        // Condição: Token mudou OU Usuário no contexto está vazio/incompleto
+        const isUserInvalid = !controller.user || !controller.user.email;
+        const isTokenChanged = controller.token !== keycloak.token;
+
+        if (isTokenChanged || isUserInvalid) {
+           console.log(">>> [SYNC] Iniciando sincronização...");
+           
+           const syncUser = async () => {
+             try {
+               // --- CORREÇÃO DE URL: Usar a URL completa da API ---
+               // Isso evita que o request bata no Frontend e retorne HTML
+               const apiUrl = process.env.REACT_APP_API_URL;
+               console.log(`>>> [SYNC] Buscando em: ${apiUrl}/me`);
+               
+               const response = await axios.get(`${apiUrl}/me`);
+               // ------------------------------------------------
+               
+               console.log(">>> [SYNC] Resposta bruta da API:", response.data);
+
+               // --- LÓGICA DE EXTRAÇÃO E ACHATAMENTO ---
+               const backendData = response.data.data; // Formato JSON:API
+               let userFormatted = null;
+
+               if (backendData && backendData.attributes) {
+                   // Formato Novo (JSON:API) -> Tira de attributes e põe na raiz
+                   userFormatted = {
+                     id: backendData.id,
+                     ...backendData.attributes
+                   };
+               } else {
+                   // Formato Antigo ou Plano (Fallback)
+                   userFormatted = response.data;
+               }
+               
+               console.log(">>> [SYNC] Atualizando Contexto com:", userFormatted);
+               
+               // ATUALIZA O CONTEXTO GLOBAL
+               setAuth(dispatch, { token: keycloak.token, user: userFormatted });
+
+             } catch (error) {
+               console.error(">>> [SYNC] ERRO FATAL ao buscar usuário:", error);
+               
+               // Fallback Visual para não travar a tela em loading
+               const basicUser = {
+                 name: keycloak.tokenParsed?.name || "Usuário (Erro API)",
+                 email: keycloak.tokenParsed?.email,
+                 profile: { name: "Erro" },
+                 mustChangePassword: false,
+                 role: "Visitante" 
+               };
+               // Só sobrescreve se não tiver usuário nenhum ainda
+               if (!controller.user) {
+                   setAuth(dispatch, { token: keycloak.token, user: basicUser });
+               }
+             }
+           };
+           syncUser();
+        } 
+    } else if (initialized && !keycloak.authenticated) {
+        // Se não autenticado, garante limpeza
+        if (controller.token) {
+           logout(dispatch);
+        }
+    }
+  }, [initialized, keycloak, keycloak.authenticated, dispatch, controller.token, controller.user]);
+
+  return null;
+};
+
+// --- COMPONENTE 2: O Guarda de Renderização ---
+const KeycloakLoadingGuard = ({ children }) => {
+  const { initialized } = useKeycloak();
+
+  if (!initialized) {
+    return (
+      <Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress size={60} color="info" />
+      </Box>
+    );
+  }
+
+  return children;
+};
+
+
+// --- APP PRINCIPAL ---
 export default function App() {
   const [controller, dispatch] = useMaterialUIController();
   const {
@@ -80,13 +179,12 @@ export default function App() {
     }
   };
 
-  const handleConfiguratorOpen = () => setOpenConfigurator(dispatch, !openConfigurator);
-
   const navigate = useNavigate();
 
+  // Interceptador para login manual (caso o axios receba 401 do keycloak)
   setupAxiosInterceptors(() => {
-    logout(dispatch);
-    navigate("/auth/login");
+      logout(dispatch);
+      keycloak.login();
   });
 
   useEffect(() => {
@@ -120,16 +218,20 @@ export default function App() {
       return null;
     });
 
-  return direction === "rtl" ? (
-    <CacheProvider value={rtlCache}>
-      <ThemeProvider theme={darkMode ? themeDarkRTL : themeRTL}>
+  const keycloakInitOptions = {
+    onLoad: 'login-required',
+    checkLoginIframe: false, 
+    pkceMethod: 'S256',
+  };
+
+  const MainContent = (
+    <ThemeProvider theme={darkMode ? direction === "rtl" ? themeDarkRTL : themeDark : direction === "rtl" ? themeRTL : theme}>
         <CssBaseline />
         {layout === "dashboard" && (
           <>
             <Sidenav
               color={sidenavColor}
               brand={(transparentSidenav && !darkMode) || whiteSidenav ? brandDark : brandWhite}
-              brandName="Mind The Gap"
               routes={routes}
               onMouseEnter={handleOnMouseEnter}
               onMouseLeave={handleOnMouseLeave}
@@ -138,79 +240,36 @@ export default function App() {
           </>
         )}
         {layout === "vr" && <Configurator />}
-        <DashboardProvider>
-             <Routes>
-                {getRoutes(routes)}
-                <Route path="*" element={<Navigate to="/dashboard" />} />
-             </Routes>
-        </DashboardProvider>
-      </ThemeProvider>
-    </CacheProvider>
-  ) : (
-    <ThemeProvider theme={darkMode ? themeDark : theme}>
-      <CssBaseline />
-      {layout === "dashboard" && (
-        <>
-          <Sidenav
-            color={sidenavColor}
-            brand={(transparentSidenav && !darkMode) || whiteSidenav ? brandDark : brandWhite}
-            routes={routes}
-            onMouseEnter={handleOnMouseEnter}
-            onMouseLeave={handleOnMouseLeave}
-          />
-          <Configurator />
-        </>
-      )}
-      {layout === "vr" && <Configurator />}
-      
-      <DashboardProvider>
         
-        {/* Componente de Proteção de Senha (Só renderiza se tiver token) */}
-        {token && <ForcePasswordChange />}
-
-        <Routes>
-          <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/register" element={<Register />} />
-          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-          <Route path="/auth/reset-password" element={<ResetPassword />} />
-          
-          <Route
-            exact
-            path="user-profile"
-            element={
-              <ProtectedRoute isAuthenticated={!!token}>
-                <UserProfile />
-              </ProtectedRoute>
-            }
-            key="user-profile"
-          />
-          
-          <Route
-            exact
-            path="user-management"
-            element={
-              <ProtectedRoute isAuthenticated={!!token}>
-                <UserManagement />
-              </ProtectedRoute>
-            }
-            key="user-management"
-          />
-
-          <Route
-            exact
-            path="/observabilidade/mapeamento-dados/:id"
-            element={
-              <ProtectedRoute isAuthenticated={!!token}>
-                <MapeamentoDados />
-              </ProtectedRoute>
-            }
-            key="mapeamento-dados-id"
-          />
-
-          {getRoutes(routes)}
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </DashboardProvider>
+        <DashboardProvider>
+          {token && <ForcePasswordChange />}
+          <Routes>
+            <Route exact path="user-profile" element={<ProtectedRoute isAuthenticated={!!token}><UserProfile /></ProtectedRoute>} key="user-profile" />
+            <Route exact path="user-management" element={<ProtectedRoute isAuthenticated={!!token}><UserManagement /></ProtectedRoute>} key="user-management" />
+            <Route exact path="/observabilidade/mapeamento-dados/:id" element={<ProtectedRoute isAuthenticated={!!token}><MapeamentoDados /></ProtectedRoute>} key="mapeamento-dados-id" />
+            
+            {getRoutes(routes)}
+            
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </DashboardProvider>
     </ThemeProvider>
+  );
+
+  return (
+    <ReactKeycloakProvider authClient={keycloak} initOptions={keycloakInitOptions}>
+      {/* Executa a lógica de sync com URL corrigida */}
+      <KeycloakLogicSync />
+      
+      <KeycloakLoadingGuard>
+         {direction === "rtl" ? (
+             <CacheProvider value={rtlCache}>
+                {MainContent}
+             </CacheProvider>
+         ) : (
+             MainContent
+         )}
+      </KeycloakLoadingGuard>
+    </ReactKeycloakProvider>
   );
 }

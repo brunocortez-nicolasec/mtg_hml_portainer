@@ -7,8 +7,6 @@ const prisma = new PrismaClient();
 const router = express.Router();
 
 const isAdmin = (req, res, next) => {
-  // O req.user vem do passport.js corrigido, que já inclui 'profile'
-  // Corrigido de 'admin' (minúsculo) para 'Admin' (maiúsculo)
   if (req.user && req.user.profile?.name === 'Admin') { 
     next();
   } else {
@@ -16,14 +14,28 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-// --- Função Auxiliar para Gerar Senha Temporária ---
+// --- Função Auxiliar para Gerar Senha Temporária (SEGURA E COMPLIANT) ---
 const generateTemporaryPassword = (length = 12) => {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$";
-    let retVal = "";
-    for (let i = 0, n = charset.length; i < length; ++i) {
-        retVal += charset.charAt(Math.floor(Math.random() * n));
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const numbers = "0123456789";
+    const special = "!@#$%^&*(),.?\":{}|<>";
+    const all = lower + upper + numbers + special;
+
+    // Garante pelo menos um de cada tipo obrigatório
+    let password = "";
+    password += lower.charAt(Math.floor(Math.random() * lower.length));
+    password += upper.charAt(Math.floor(Math.random() * upper.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    password += special.charAt(Math.floor(Math.random() * special.length));
+
+    // Preenche o resto aleatoriamente
+    for (let i = password.length; i < length; i++) {
+        password += all.charAt(Math.floor(Math.random() * all.length));
     }
-    return retVal;
+
+    // Embaralha a senha para que os caracteres obrigatórios não fiquem sempre no início
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
 };
 
 // Rota GET
@@ -81,7 +93,7 @@ router.post(
           password: hashedPassword,
           profileId: profileObject.id, 
           packageId: packageId || null,
-          mustChangePassword: false // Criado manualmente não precisa trocar
+          mustChangePassword: false 
         },
         include: { profile: true, package: true }, 
       });
@@ -94,7 +106,7 @@ router.post(
   }
 );
 
-// --- NOVA ROTA: RESET DE SENHA (ADMIN) ---
+// --- ROTA DE RESET DE SENHA (ADMIN) ---
 router.post(
     "/:id/reset-password",
     passport.authenticate("jwt", { session: false }),
@@ -104,13 +116,13 @@ router.post(
         const userId = parseInt(req.params.id, 10);
         if (isNaN(userId)) return res.status(400).json({ message: "ID inválido." });
   
-        // 1. Gera senha temporária
+        // 1. Gera senha temporária GARANTINDO complexidade
         const tempPassword = generateTemporaryPassword(12);
   
         // 2. Criptografa
         const hashedPassword = await bcrypt.hash(tempPassword, 10);
   
-        // 3. Salva no banco e ATIVA a flag
+        // 3. Salva no banco e ATIVA a flag de troca obrigatória
         await prisma.user.update({
           where: { id: userId },
           data: { 
@@ -132,7 +144,7 @@ router.post(
     }
 );
 
-// --- NOVA ROTA: TROCA DE SENHA PELO PRÓPRIO USUÁRIO ---
+// --- ROTA DE TROCA DE SENHA PELO PRÓPRIO USUÁRIO ---
 router.post(
   "/change-password",
   passport.authenticate("jwt", { session: false }),
@@ -158,7 +170,7 @@ router.post(
             where: { id: userId },
             data: { 
                 password: hashedPassword,
-                mustChangePassword: false // Desativa a flag
+                mustChangePassword: false 
             }
         });
 
@@ -176,9 +188,6 @@ router.post(
 router.patch(
   "/:id",
   passport.authenticate("jwt", { session: false }),
-  // Removido isAdmin para permitir que o próprio usuário edite seu perfil se a rota for usada para isso
-  // Se for estritamente admin, mantenha o middleware. 
-  // Para garantir segurança, verificamos se é admin OU se é o próprio usuário.
   (req, res, next) => {
       const targetId = parseInt(req.params.id, 10);
       if (req.user.profile?.name === 'Admin' || req.user.id === targetId) {
@@ -207,10 +216,9 @@ router.patch(
           }
           const hashedPassword = await bcrypt.hash(password, 10);
           dataToUpdate.password = hashedPassword;
-          dataToUpdate.mustChangePassword = false; // Se mudou, não precisa mais trocar
+          dataToUpdate.mustChangePassword = false; 
       }
       
-      // Apenas Admin pode mudar Role ou Pacote
       if (req.user.profile?.name === 'Admin') {
           if (role) {
             const roleNameToFind = typeof role === 'string' ? role : role.name;
